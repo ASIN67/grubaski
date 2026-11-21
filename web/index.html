@@ -47,6 +47,33 @@
         console.log('Grubasek PWA: Nowa wersja została zainstalowana.');
       });
     }
+
+    // Hardware torch controller for camera stream on supported browsers
+    window.toggleGrubasekTorch = async function(enable) {
+      try {
+        const videoElements = document.querySelectorAll('video');
+        for (const video of videoElements) {
+          const stream = video.srcObject;
+          if (!stream || !stream.getVideoTracks) continue;
+          const tracks = stream.getVideoTracks();
+          for (const track of tracks) {
+            if (!track.applyConstraints) continue;
+            const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+            if (capabilities.torch === undefined && !('torch' in capabilities)) {
+              continue;
+            }
+            await track.applyConstraints({
+              advanced: [{ torch: Boolean(enable) }]
+            });
+            return true;
+          }
+        }
+        return false;
+      } catch (err) {
+        console.warn('Grubasek torch error:', err);
+        return false;
+      }
+    };
   </script>
 </head>
 <body>

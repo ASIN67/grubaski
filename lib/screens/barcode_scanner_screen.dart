@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,6 +6,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../models/models.dart';
 import '../providers/product_search_provider.dart';
 import '../utils/app_colors.dart';
+import '../utils/web_torch_helper.dart';
 import 'add_portion_sheet.dart';
 import 'create_custom_product_screen.dart';
 
@@ -30,6 +32,7 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
   late final MobileScannerController _scannerController;
   bool _isProcessing = false;
   bool _isTorchOn = false;
+  bool _isScreenTorchOn = false;
   CameraFacing _cameraFacing = CameraFacing.back;
 
   @override
@@ -44,17 +47,58 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
 
   @override
   void dispose() {
+    if (kIsWeb && _isTorchOn) {
+      tryToggleWebHardwareTorch(false);
+    }
     _scannerController.dispose();
     super.dispose();
   }
 
   void _toggleTorch() async {
-    try {
-      await _scannerController.toggleTorch();
+    final nextState = !_isTorchOn;
+    bool hardwareTorchSuccess = false;
+
+    if (kIsWeb) {
+      // On Web, try hardware torch first via MediaTrackConstraints.torch
+      hardwareTorchSuccess = await tryToggleWebHardwareTorch(nextState);
+    } else {
+      // On Native Android / iOS
+      try {
+        await _scannerController.toggleTorch();
+        hardwareTorchSuccess = true;
+      } catch (_) {
+        hardwareTorchSuccess = false;
+      }
+    }
+
+    if (!mounted) return;
+
+    if (hardwareTorchSuccess) {
       setState(() {
-        _isTorchOn = !_isTorchOn;
+        _isTorchOn = nextState;
+        _isScreenTorchOn = false;
       });
-    } catch (_) {}
+    } else {
+      // If hardware LED torch is blocked by the browser (Safari on iOS WebKit)
+      // fallback to high-luminance screen illumination around the viewfinder
+      final newScreenTorch = !_isScreenTorchOn;
+      setState(() {
+        _isScreenTorchOn = newScreenTorch;
+        _isTorchOn = newScreenTorch;
+      });
+
+      if (newScreenTorch) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Safari na iOS blokuje diodę LED w przeglądarce. Włączono doświetlenie ekranem.',
+            ),
+            duration: Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   void _switchCamera() async {
@@ -220,7 +264,10 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
           ),
 
           // Viewfinder Overlay
-          _ViewfinderOverlay(isProcessing: _isProcessing),
+          _ViewfinderOverlay(
+            isProcessing: _isProcessing,
+            isScreenTorchOn: _isScreenTorchOn,
+          ),
 
           // Top App Bar Controls
           SafeArea(
@@ -314,12 +361,16 @@ class _BarcodeScannerScreenState extends ConsumerState<BarcodeScannerScreen> {
   }
 }
 
-/// Custom painter rendering a darkened mask with a clear rounded viewfinder window
-/// and green targeting corner brackets.
+/// Custom painter rendering a darkened mask (or bright white torch mask)
+/// with a clear rounded viewfinder window and targeting corner brackets.
 class _ViewfinderOverlay extends StatelessWidget {
   final bool isProcessing;
+  final bool isScreenTorchOn;
 
-  const _ViewfinderOverlay({required this.isProcessing});
+  const _ViewfinderOverlay({
+    required this.isProcessing,
+    this.isScreenTorchOn = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -331,10 +382,11 @@ class _ViewfinderOverlay extends StatelessWidget {
 
         return Stack(
           children: [
-            // Darkened cut-out mask
+            // Cut-out mask: semi-transparent black in normal mode, or
+            // pure brilliant white (#FFFFFF) in screen-torch mode to cast forward light on barcodes!
             ColorFiltered(
               colorFilter: ColorFilter.mode(
-                Colors.black.withOpacity(0.65),
+                isScreenTorchOn ? Colors.white : Colors.black.withOpacity(0.65),
                 BlendMode.srcOut,
               ),
               child: Stack(
@@ -371,9 +423,20 @@ class _ViewfinderOverlay extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: isProcessing ? AppColors.warning : AppColors.primary,
-                    width: 2.5,
+                    color: isProcessing
+                        ? AppColors.warning
+                        : (isScreenTorchOn ? Colors.white : AppColors.primary),
+                    width: isScreenTorchOn ? 3.5 : 2.5,
                   ),
+                  boxShadow: isScreenTorchOn
+                      ? [
+                          BoxShadow(
+                            color: Colors.white.withOpacity(0.85),
+                            blurRadius: 24,
+                            spreadRadius: 6,
+                          ),
+                        ]
+                      : null,
                 ),
               ),
             ),
