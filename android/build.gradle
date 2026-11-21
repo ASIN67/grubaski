@@ -14,13 +14,11 @@ subprojects {
 }
 
 subprojects { subproject ->
-    if (subproject.name != "app") {
-        subproject.afterEvaluate {
-            if (subproject.hasProperty("android")) {
-                subproject.android.compileSdkVersion 34
-            }
-        }
-    }
+    subproject.ext.flutter = [
+        compileSdkVersion: 34,
+        targetSdkVersion: 34,
+        minSdkVersion: 21,
+    ]
 }
 
 tasks.register("clean", Delete) {
