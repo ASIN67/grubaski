@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/app_colors.dart';
+import 'email_verification_screen.dart';
 
 /// Screen allowing new users to create an account in Supabase.
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -32,14 +33,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     ref.read(authProvider.notifier).clearError();
     if (!_formKey.currentState!.validate()) return;
 
-    final success = await ref.read(authProvider.notifier).signUp(
+    final result = await ref.read(authProvider.notifier).signUp(
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
 
     if (!mounted) return;
 
-    if (success) {
+    if (result.status == SignUpStatus.signedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Konto zostało utworzone pomyślnie! Zalogowano.'),
@@ -48,6 +49,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         ),
       );
       Navigator.of(context).pop(true);
+    } else if (result.status == SignUpStatus.needsEmailConfirmation) {
+      final email = _emailController.text.trim();
+      final navigator = Navigator.of(context);
+      final verified = await navigator.push<bool>(
+        MaterialPageRoute(
+          builder: (context) => EmailVerificationScreen(email: email),
+        ),
+      );
+
+      if (!mounted) return;
+      if (verified == true) {
+        navigator.pop(true);
+      }
     }
   }
 

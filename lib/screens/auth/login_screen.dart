@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/app_colors.dart';
+import 'email_verification_screen.dart';
 import 'forgot_password_sheet.dart';
 import 'register_screen.dart';
 
@@ -147,24 +148,86 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             color: AppColors.error.withOpacity(0.35),
                           ),
                         ),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Icon(
-                              Icons.error_outline_rounded,
-                              color: AppColors.error,
-                              size: 22,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                authState.errorMessage!,
-                                style: const TextStyle(
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.error_outline_rounded,
                                   color: AppColors.error,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    authState.errorMessage!,
+                                    style: const TextStyle(
+                                      color: AppColors.error,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (authState.errorMessage!
+                                    .toLowerCase()
+                                    .contains('kod') ||
+                                authState.errorMessage!
+                                    .toLowerCase()
+                                    .contains('potwierdz')) ...[
+                              const SizedBox(height: 10),
+                              OutlinedButton.icon(
+                                onPressed: () async {
+                                  final email = _emailController.text.trim();
+                                  if (email.isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Wpisz swój adres e-mail powyżej, aby wprowadzić kod weryfikacyjny.',
+                                        ),
+                                        backgroundColor: AppColors.error,
+                                        behavior: SnackBarBehavior.floating,
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  final navigator = Navigator.of(context);
+                                  final verified =
+                                      await navigator.push<bool>(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          EmailVerificationScreen(email: email),
+                                    ),
+                                  );
+                                  if (!mounted) return;
+                                  if (verified == true) {
+                                    navigator.pop(true);
+                                  }
+                                },
+                                icon: const Icon(
+                                  Icons.mark_email_read_outlined,
+                                  size: 18,
+                                  color: AppColors.primaryLight,
+                                ),
+                                label: const Text(
+                                  'Wprowadź kod weryfikacyjny',
+                                  style: TextStyle(
+                                    color: AppColors.primaryLight,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(
+                                    color: AppColors.primary.withOpacity(0.5),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
+import 'package:grubasek/screens/auth/email_verification_screen.dart';
 import 'package:grubasek/screens/auth/forgot_password_sheet.dart';
 import 'package:grubasek/screens/auth/login_screen.dart';
 import 'package:grubasek/screens/auth/register_screen.dart';
@@ -106,6 +107,28 @@ void main() {
       expect(find.text('Konto i chmura'), findsOneWidget);
       expect(find.text('Tryb gościa'), findsOneWidget);
       expect(find.text('Zaloguj / Zarejestruj się'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('EmailVerificationScreen renders header, email badge and submit',
+        (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            theme: AppTheme.darkTheme,
+            home: const EmailVerificationScreen(
+              email: 'test@example.com',
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Potwierdź adres e-mail'), findsOneWidget);
+      expect(find.text('test@example.com'), findsOneWidget);
+      expect(find.text('Zatwierdź kod i aktywuj'), findsOneWidget);
+      expect(find.text('Zmień adres e-mail / Wróć'), findsOneWidget);
+      expect(find.byType(TextFormField), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox());
     });

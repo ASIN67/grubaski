@@ -1,7 +1,75 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:hive/hive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'hive_service.dart';
 import 'supabase_config.dart';
+
+/// Pure Dart Hive-backed session storage for Supabase.
+/// Bypasses native platform channels (shared_preferences) and operates consistently
+/// across Web (IndexedDB), iOS (Safari PWA & native), Android, Windows, and macOS,
+/// preventing MissingPluginException completely.
+class HiveSupabaseLocalStorage extends LocalStorage {
+  const HiveSupabaseLocalStorage();
+
+  static const String _sessionKey = 'supabase_auth_persisted_session';
+
+  Box<dynamic> get _box => HiveService.instance.settingsBox;
+
+  @override
+  Future<void> initialize() async {}
+
+  @override
+  Future<bool> hasAccessToken() async {
+    return _box.containsKey(_sessionKey);
+  }
+
+  @override
+  Future<String?> accessToken() async {
+    final dynamic val = _box.get(_sessionKey);
+    if (val is String && val.isNotEmpty) {
+      return val;
+    }
+    return null;
+  }
+
+  @override
+  Future<void> removePersistedSession() async {
+    await _box.delete(_sessionKey);
+  }
+
+  @override
+  Future<void> persistSession(String persistSessionString) async {
+    await _box.put(_sessionKey, persistSessionString);
+  }
+}
+
+/// Pure Dart Hive-backed Gotrue PKCE async storage to eliminate all native channel dependencies.
+class HiveGotrueAsyncStorage extends GotrueAsyncStorage {
+  const HiveGotrueAsyncStorage();
+
+  static const String _prefix = 'supabase_pkce_';
+  Box<dynamic> get _box => HiveService.instance.settingsBox;
+
+  @override
+  Future<String?> getItem({required String key}) async {
+    final dynamic val = _box.get('$_prefix$key');
+    if (val is String && val.isNotEmpty) {
+      return val;
+    }
+    return null;
+  }
+
+  @override
+  Future<void> setItem({required String key, required String value}) async {
+    await _box.put('$_prefix$key', value);
+  }
+
+  @override
+  Future<void> removeItem({required String key}) async {
+    await _box.delete('$_prefix$key');
+  }
+}
 
 /// Centralized service managing Supabase client initialization, authentication lifecycle,
 /// and safe offline fallback.
@@ -58,6 +126,10 @@ class SupabaseService {
         url: SupabaseConfig.url,
         // ignore: deprecated_member_use
         anonKey: SupabaseConfig.anonKey,
+        authOptions: const FlutterAuthClientOptions(
+          localStorage: HiveSupabaseLocalStorage(),
+          pkceAsyncStorage: HiveGotrueAsyncStorage(),
+        ),
         debug: kDebugMode,
       );
       _isInitialized = true;
@@ -110,6 +182,42 @@ class SupabaseService {
       email: email.trim(),
       password: password,
       data: data,
+    );
+  }
+
+  /// Verifies a sign-up email confirmation code (OTP).
+  Future<AuthResponse> verifyEmailOtp({
+    required String email,
+    required String token,
+  }) async {
+    final c = client;
+    if (c == null) {
+      throw const AuthException(
+        'Brak połączenia z chmurą Supabase. Sprawdź połączenie z internetem.',
+      );
+    }
+
+    return await c.auth.verifyOTP(
+      email: email.trim(),
+      token: token.trim(),
+      type: OtpType.signup,
+    );
+  }
+
+  /// Resends a sign-up verification OTP email.
+  Future<ResendResponse> resendSignUpOtp({
+    required String email,
+  }) async {
+    final c = client;
+    if (c == null) {
+      throw const AuthException(
+        'Brak połączenia z chmurą Supabase. Sprawdź połączenie z internetem.',
+      );
+    }
+
+    return await c.auth.resend(
+      email: email.trim(),
+      type: OtpType.signup,
     );
   }
 
