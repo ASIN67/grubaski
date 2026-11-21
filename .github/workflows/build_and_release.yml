@@ -59,6 +59,7 @@ jobs:
             Pobierz plik `grubasek.apk` i zainstaluj na telefonie z systemem Android.
           files: build/app/outputs/flutter-apk/grubasek.apk
           prerelease: false
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
