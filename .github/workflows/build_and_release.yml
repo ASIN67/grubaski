@@ -23,10 +23,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Konfiguracja Flutter SDK (Stable)
+      - name: Konfiguracja Flutter SDK (3.24.5)
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          flutter-version: '3.24.5'
           cache: true
 
       - name: Pobieranie zależności projektu
@@ -71,10 +71,10 @@ jobs:
       - name: Pobieranie kodu z repozytorium
         uses: actions/checkout@v4
 
-      - name: Konfiguracja Flutter SDK (Stable)
+      - name: Konfiguracja Flutter SDK (3.24.5)
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          flutter-version: '3.24.5'
           cache: true
 
       - name: Pobieranie zależności projektu
