@@ -1,0 +1,90 @@
+name: Build & Release Grubasek (Android APK & Web PWA)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    name: Kompilacja pliku APK (Android)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Pobieranie kodu z repozytorium
+        uses: actions/checkout@v4
+
+      - name: Konfiguracja Java (OpenJDK 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Konfiguracja Flutter SDK (Stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Pobieranie zależności projektu
+        run: flutter pub get
+
+      - name: Uruchomienie testów jednostkowych
+        run: flutter test
+
+      - name: Budowanie pliku Android APK (Release)
+        run: flutter build apk --release
+
+      - name: Zmiana nazwy pliku na grubasek.apk
+        run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/grubasek.apk
+
+      - name: Zapisanie pliku instalacyjnego APK jako Artefakt
+        uses: actions/upload-artifact@v4
+        with:
+          name: grubasek-android-apk
+          path: build/app/outputs/flutter-apk/grubasek.apk
+          retention-days: 30
+
+      - name: Publikacja automatycznego Release w GitHub
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        with:
+          tag_name: latest
+          name: "Grubasek Najnowsza Wersja (Android APK)"
+          body: |
+            Automatyczna kompilacja najnowszej wersji aplikacji Grubasek.
+            Pobierz plik `grubasek.apk` i zainstaluj na telefonie z systemem Android.
+          files: build/app/outputs/flutter-apk/grubasek.apk
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-web:
+    name: Kompilacja wersji Web (PWA)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Pobieranie kodu z repozytorium
+        uses: actions/checkout@v4
+
+      - name: Konfiguracja Flutter SDK (Stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Pobieranie zależności projektu
+        run: flutter pub get
+
+      - name: Budowanie wersji Web (PWA Release)
+        run: flutter build web --release
+
+      - name: Zapisanie wersji Web jako Artefakt
+        uses: actions/upload-artifact@v4
+        with:
+          name: grubasek-web-pwa
+          path: build/web
+          retention-days: 14
