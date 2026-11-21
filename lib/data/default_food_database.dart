@@ -1,4 +1,4 @@
-// MODULAR PREDEFINED POLISH FOOD DATABASE (900+ ITEMS)
+// MODULAR PREDEFINED POLISH FOOD DATABASE (1800+ ITEMS)
 // Aggregates modular categories from lib/data/categories/
 
 import '../models/food_product.dart';
@@ -8,6 +8,7 @@ import 'categories/dairy_and_eggs.dart';
 import 'categories/fitness_and_supplements.dart';
 import 'categories/fruits_vegetables_fats.dart';
 import 'categories/meat_and_fish.dart';
+import 'categories/open_food_facts_staples.dart';
 import 'categories/ready_meals_and_fastfood.dart';
 import 'categories/snacks_and_sweets.dart';
 
@@ -17,6 +18,7 @@ export 'categories/dairy_and_eggs.dart';
 export 'categories/fitness_and_supplements.dart';
 export 'categories/fruits_vegetables_fats.dart';
 export 'categories/meat_and_fish.dart';
+export 'categories/open_food_facts_staples.dart';
 export 'categories/ready_meals_and_fastfood.dart';
 export 'categories/snacks_and_sweets.dart';
 
@@ -34,4 +36,5 @@ const List<FoodProduct> defaultFoodProducts = [
   ...snacksAndSweets,
   ...fitnessAndSupplements,
   ...beveragesAndSauces,
+  ...openFoodFactsStaples,
 ];

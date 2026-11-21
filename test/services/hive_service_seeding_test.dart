@@ -20,16 +20,16 @@ void main() {
     }
   });
 
-  test('HiveService.init() seeds default food products (v2 with 800+ items) and sets flags', () async {
+  test('HiveService.init() seeds default food products (v3 with 1700+ items) and sets flags', () async {
     await hiveService.init(customPath: tempDir.path);
 
     expect(hiveService.foodProductsBox.length, equals(defaultFoodProducts.length));
-    expect(hiveService.foodProductsBox.length, greaterThanOrEqualTo(800));
+    expect(hiveService.foodProductsBox.length, greaterThanOrEqualTo(1700));
 
-    final isSeededV2 = hiveService.settingsBox.get(HiveService.foodDatabaseSeededKey);
+    final isSeededV3 = hiveService.settingsBox.get(HiveService.foodDatabaseSeededKey);
     final version = hiveService.settingsBox.get(HiveService.foodDatabaseVersionKey);
-    expect(isSeededV2, isTrue);
-    expect(version, equals(2));
+    expect(isSeededV3, isTrue);
+    expect(version, equals(HiveService.currentFoodDatabaseVersion));
 
     // Verify sample product from dairy
     final sample1 = hiveService.foodProductsBox.get('seed-nab-skyr-naturalny-piatnica');
@@ -86,11 +86,11 @@ void main() {
 
     // 3. Verify migration results
     expect(settingsBox.get(HiveService.foodDatabaseSeededKey), isTrue);
-    expect(settingsBox.get(HiveService.foodDatabaseVersionKey), equals(2));
+    expect(settingsBox.get(HiveService.foodDatabaseVersionKey), equals(HiveService.currentFoodDatabaseVersion));
 
     // Total products should be defaultFoodProducts + 1 (custom product)
     expect(productBox.length, equals(defaultFoodProducts.length + 1));
-    expect(productBox.length, greaterThanOrEqualTo(800));
+    expect(productBox.length, greaterThanOrEqualTo(1700));
 
     // Custom product is completely untouched
     final retrievedCustom = productBox.get(customUserProduct.id);
@@ -165,7 +165,7 @@ void main() {
     expect(hiveService.userProfileBox.isEmpty, isTrue);
     expect(hiveService.foodProductsBox.length, equals(defaultFoodProducts.length));
     expect(hiveService.settingsBox.get(HiveService.foodDatabaseSeededKey), isTrue);
-    expect(hiveService.settingsBox.get(HiveService.foodDatabaseVersionKey), equals(2));
+    expect(hiveService.settingsBox.get(HiveService.foodDatabaseVersionKey), equals(HiveService.currentFoodDatabaseVersion));
   });
 
   test('clearAllData with reseedDefaults=false completely wipes all boxes', () async {

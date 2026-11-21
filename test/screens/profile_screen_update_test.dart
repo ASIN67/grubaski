@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:grubasek/models/models.dart';
-import 'package:grubasek/providers/user_profile_provider.dart';
 import 'package:grubasek/screens/profile_screen.dart';
 import 'package:grubasek/services/app_update_service.dart';
 import 'package:grubasek/services/hive_service.dart';

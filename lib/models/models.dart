@@ -1,5 +1,4 @@
 export 'app_release_info.dart';
-export 'app_release_info.dart';
 export 'body_measurements_entry.dart';
 export 'daily_water_log.dart';
 export 'food_product.dart';
