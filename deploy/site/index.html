@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0912">
+  <meta name="description" content="Grubasek to dziennik kalorii, posiłków i nawodnienia. Pobierz APK na Androida lub uruchom aplikację webową na iPhonie.">
+  <link rel="canonical" href="https://grubasek.pages.dev/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pl_PL">
+  <meta property="og:title" content="Grubasek — dziennik kalorii i posiłków">
+  <meta property="og:description" content="Zapisuj posiłki, licz makroskładniki i śledź postępy we własnym tempie.">
+  <meta property="og:url" content="https://grubasek.pages.dev/">
+  <title>Grubasek — dziennik kalorii i posiłków</title>
+  <link rel="icon" href="./assets/grubasek.png" type="image/png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/app/icons/Icon-180.png">
+  <link rel="preload" href="./assets/space-grotesk.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="./style.css">
+  <script src="./assets/wydanie.js" defer></script>
+  <script src="./assets/download.js" defer></script>
+  <script src="./motion.js" defer></script>
+</head>
+<body id="gora">
+  <a class="skip-link" href="#tresc">Przejdź do treści</a>
+  <svg class="icon-library" aria-hidden="true">
+    <defs>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4"/></symbol>
+      <symbol id="i-diary" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18m3-13h4m-4 4h4m-4 4h3"/></symbol>
+      <symbol id="i-meal" viewBox="0 0 24 24"><path d="M3 12h18a9 9 0 0 1-18 0Zm3 8h12m-8-11c-2-2 2-3 0-6m4 6c-2-2 2-3 0-6"/></symbol>
+      <symbol id="i-progress" viewBox="0 0 24 24"><path d="M4 4v16h16M8 14l4-4 4 2 4-6"/></symbol>
+      <symbol id="i-android" viewBox="0 0 24 24"><path d="M4 15a8 8 0 0 1 16 0H4Zm3-7L5 5m12 3 2-3"/><path d="M9 12h.01m5.99 0h.01" stroke-width="2.8"/></symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18h3"/></symbol>
+      <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 12h.01" stroke-width="2.8"/></symbol>
+      <symbol id="i-scan" viewBox="0 0 24 24"><path d="M8 4H4v4m12-4h4v4M8 20H4v-4m12 4h4v-4M7 9v6m3-6v6m4-6v6m3-6v6"/></symbol>
+      <symbol id="i-local" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M10 17h4m-4-6 1.5 1.5L14 10"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    </defs>
+  </svg>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="#gora" aria-label="Grubasek — początek strony">
+        <img src="./assets/grubasek.png" width="38" height="38" alt="">
+        <span>Grubasek</span>
+      </a>
+      <nav aria-label="Nawigacja główna">
+        <a class="nav-link" href="#mozliwosci">Funkcje</a>
+        <a class="nav-link nav-link-wide" href="#podglad">Podgląd</a>
+        <a class="nav-link nav-link-wide" href="#jak-zaczac">Jak zacząć</a>
+        <a class="button button-nav" href="#pobieranie"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>Pobieranie</a>
+      </nav>
+    </div>
+    <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+  </header>
+
+  <main id="tresc">
+    <section class="hero" aria-labelledby="tytul">
+      <div class="wrap hero-inner">
+        <div class="hero-copy">
+          <p class="eyebrow">Dziennik kalorii i posiłków</p>
+          <h1 id="tytul">Jedz po<br><em>swojemu.</em></h1>
+          <p class="hero-lead">Zapisuj posiłki, licz makroskładniki i śledź postępy we własnym tempie.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#pobieranie"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>Pobierz aplikację</a>
+            <a class="button button-secondary" href="#podglad">Zobacz aplikację</a>
+          </div>
+          <p class="hero-meta"><svg class="icon" aria-hidden="true"><use href="#i-local"></use></svg>Bez zakładania konta <span aria-hidden="true"></span> Dziennik offline</p>
+        </div>
+
+        <figure class="hero-visual" data-parallax data-scroll-art>
+          <div class="hero-stage">
+            <div class="orbit orbit-outer" aria-hidden="true"></div>
+            <div class="orbit orbit-inner" aria-hidden="true"></div>
+            <div class="phone phone-progress">
+              <img src="./assets/postepy.png" alt="Ekran Postępy z wykresem obwodu pasa i historią pomiarów" width="786" height="1704">
+            </div>
+            <div class="phone phone-diary">
+              <img src="./assets/dziennik.png" alt="Ekran Dziennika z bilansem kalorii, makroskładnikami i nawodnieniem" width="786" height="1704" fetchpriority="high">
+            </div>
+          </div>
+          <figcaption>Ekrany aplikacji z przykładowymi danymi</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="features wrap" id="mozliwosci" aria-labelledby="mozliwosci-title">
+      <div class="section-heading" data-reveal="heading">
+        <h2 id="mozliwosci-title">Od posiłku<br>do postępów</h2>
+        <p>Planuj porcje, prowadź dziennik i wracaj do swoich pomiarów.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card meal-card" data-reveal data-scroll-art>
+          <img class="meal-photo" src="./assets/meal-editorial.webp" alt="Miska z łososiem, ziarnami, zielonymi warzywami i cytryną" width="1440" height="960" loading="lazy">
+          <div class="meal-content">
+            <div class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-meal"></use></svg></div>
+            <h3>Ulubione i przepisy</h3>
+            <p>Dodaj ulubione produkty i zapisz własny przepis ze składnikami. Później dodasz całą porcję lub jej część.</p>
+          </div>
+        </article>
+        <article class="feature-card balance-card" data-reveal>
+          <div class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-diary"></use></svg></div>
+          <h3>Bilans dnia</h3>
+          <p>Porównuj spożycie kalorii i makroskładników z dziennym celem. Zapisuj wodę i przeglądaj poprzednie dni.</p>
+          <div class="macro-labels" aria-label="Makroskładniki">
+            <span>Białko</span><span>Węglowodany</span><span>Tłuszcze</span>
+          </div>
+        </article>
+        <article class="feature-card progress-card" data-reveal>
+          <div class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-progress"></use></svg></div>
+          <h3>Historia pomiarów</h3>
+          <p>Notuj wagę oraz obwody pasa, klatki piersiowej, ramienia, bioder i uda. Wagę i obwód pasa prześledzisz na wykresach.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="demo" id="podglad" aria-labelledby="podglad-title">
+      <div class="wrap demo-inner" data-demo>
+        <div class="demo-header" data-reveal="heading">
+          <h2 id="podglad-title">Zajrzyj do aplikacji</h2>
+          <div class="demo-tabs" data-demo-tabs aria-label="Ekrany aplikacji" hidden>
+            <button type="button" data-demo-tab="diary">Dziennik</button>
+            <button type="button" data-demo-tab="progress">Postępy</button>
+          </div>
+        </div>
+        <div class="demo-panel" data-demo-panel="diary" data-reveal>
+          <figure class="demo-screen">
+            <img src="./assets/dziennik.png" alt="Ekran Dziennika z dziennym bilansem i licznikiem wody" width="786" height="1704" loading="lazy">
+            <figcaption>Przykładowe dane</figcaption>
+          </figure>
+          <div class="demo-copy">
+            <h3>Sprawdź, ile zostało do celu</h3>
+            <p>W Dzienniku widzisz spożyte kalorie, makroskładniki i ilość wypitej wody, gdy zapisujesz kolejne posiłki.</p>
+            <ul class="demo-list">
+              <li><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>Dodawaj wpisy do wybranego dnia i posiłku.</li>
+              <li><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>Zmieniaj gramaturę już zapisanego produktu.</li>
+              <li><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>Kopiuj cały posiłek zamiast wpisywać go od nowa.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="demo-panel" data-demo-panel="progress" data-reveal>
+          <figure class="demo-screen">
+            <img src="./assets/postepy.png" alt="Ekran Postępy z wykresem obwodu pasa i datami pomiarów" width="786" height="1704" loading="lazy">
+            <figcaption>Przykładowe dane</figcaption>
+          </figure>
+          <div class="demo-copy">
+            <h3>Prześledź zmiany w czasie</h3>
+            <p>W Postępach przełączaj między wagą a obwodami ciała i porównuj pomiary zapisane w różnych dniach.</p>
+            <ul class="demo-list">
+              <li><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>Dodawaj pomiary, kiedy Ci wygodnie.</li>
+              <li><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>Sprawdzaj wykres wagi lub obwodu pasa.</li>
+              <li><svg class="icon" aria-hidden="true"><use href="#i-check"></use></svg>Przeglądaj historię według daty pomiaru.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="walkthrough wrap" id="jak-zaczac" aria-labelledby="jak-zaczac-title">
+      <div class="walkthrough-copy" data-reveal>
+        <h2 id="jak-zaczac-title">Jak zacząć?</h2>
+        <aside class="local-note" aria-label="Dane zapisane lokalnie">
+          <div class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-local"></use></svg></div>
+          <div>
+            <h3>Dziennik działa offline</h3>
+            <p>Zapisane posiłki, ulubione, przepisy i pomiary są dostępne na urządzeniu. Wyszukiwanie nowych produktów w Open Food Facts wymaga internetu.</p>
+          </div>
+        </aside>
+      </div>
+      <ol class="steps" aria-label="Pierwsze kroki" role="list">
+        <li data-reveal>
+          <div class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-target"></use></svg></div>
+          <div>
+            <h3>Skonfiguruj profil</h3>
+            <p>Podaj dane i wybierz cel. Grubasek wyliczy cele kalorii i makroskładników na każdy dzień.</p>
+          </div>
+        </li>
+        <li data-reveal>
+          <div class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-scan"></use></svg></div>
+          <div>
+            <h3>Dodaj produkt i porcję</h3>
+            <p>Wyszukaj produkt lub zeskanuj kod kreskowy. Wybierz posiłek i podaj gramaturę.</p>
+          </div>
+        </li>
+        <li data-reveal>
+          <div class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-diary"></use></svg></div>
+          <div>
+            <h3>Sprawdź bilans dnia</h3>
+            <p>Otwórz Dziennik i porównaj zapisane posiłki ze swoimi dziennymi celami.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section class="downloads wrap" id="pobieranie" aria-labelledby="pobieranie-title">
+      <div class="download-panel" data-reveal>
+        <h2 id="pobieranie-title">Pobierz Grubaska</h2>
+        <div class="release-options">
+          <div class="release-card">
+            <div class="release-top">
+              <div class="release-icon"><svg class="icon" aria-hidden="true"><use href="#i-android"></use></svg></div>
+              <div>
+                <h3>Android</h3>
+                <p id="release-info">Plik instalacyjny APK</p>
+              </div>
+            </div>
+            <p class="release-status" id="release-status">Instalator w przygotowaniu</p>
+            <a class="button button-primary release-download" id="release-download" hidden><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>Pobierz APK</a>
+          </div>
+          <div class="release-card">
+            <div class="release-top">
+              <div class="release-icon release-icon-ios"><svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg></div>
+              <div>
+                <h3>iOS</h3>
+                <p>Aplikacja webowa na iPhone’a</p>
+              </div>
+            </div>
+            <a class="button button-primary release-download" href="/app/">Uruchom na iPhone</a>
+            <p class="release-help">W Safari stuknij „Udostępnij” (kwadrat ze strzałką) i wybierz „Do ekranu głównego”. Jeśli pojawi się opcja „Otwórz jako aplikację www”, włącz ją. Na koniec stuknij „Dodaj”.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="faq wrap" id="pytania" aria-labelledby="pytania-title">
+      <h2 id="pytania-title" data-reveal>Częste pytania</h2>
+      <div class="faq-list">
+        <details data-reveal>
+          <summary>Czy trzeba zakładać konto?</summary>
+          <p>Do korzystania z aplikacji wystarczy profil zapisany na urządzeniu. Dziennik i pomiary również zapisują się lokalnie.</p>
+        </details>
+        <details data-reveal>
+          <summary>Co zrobić, gdy brakuje produktu w bazie?</summary>
+          <p>Utwórz własny produkt i zapisz jego wartości odżywcze. Jeśli znasz tylko liczbę kalorii posiłku, skorzystaj z funkcji „Szybki wpis”. Makroskładniki są tam opcjonalne.</p>
+        </details>
+        <details data-reveal>
+          <summary>Czy mogę wyeksportować historię posiłków?</summary>
+          <p>W zakładce „Profil” możesz wyeksportować Dziennik do pliku CSV. Plik zawiera m.in. datę, nazwę posiłku, produkt, kalorie i makroskładniki.</p>
+        </details>
+        <details data-reveal>
+          <summary>Jak zainstalować Grubaska?</summary>
+          <p>Na Androidzie pobierz plik APK. Na iPhonie otwórz darmową wersję webową w Safari i dodaj ją do ekranu głównego. Oba przyciski znajdziesz w <a href="#pobieranie">sekcji pobierania</a>.</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap footer-inner">
+      <a class="brand" href="#gora" aria-label="Grubasek — powrót na górę strony">
+        <img src="./assets/grubasek.png" width="32" height="32" alt="">
+        <span>Grubasek</span>
+      </a>
+      <div class="footer-links">
+        <a class="footer-link" href="#mozliwosci">Funkcje</a>
+        <a class="footer-link" href="#pytania">Pytania</a>
+        <a class="footer-link" href="#pobieranie">Pobieranie</a>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
+

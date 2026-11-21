@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -49,6 +50,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _checkForUpdateManual() async {
     setState(() => _isCheckingUpdate = true);
+
+    // On iOS and Web PWA, updates are silent and automatic via Service Worker
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (!mounted) return;
+      setState(() => _isCheckingUpdate = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Wersja na iOS i przeglądarki (PWA) aktualizuje się automatycznie w tle. Masz aktualną wersję (v$_appVersion).',
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF10B981),
+        ),
+      );
+      return;
+    }
+
     try {
       final service = ref.read(appUpdateServiceProvider);
       final result = await service.checkForUpdate();
@@ -920,7 +939,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Pobieraj nowości i poprawki automatycznie bez potrzeby ponownego ściągania aplikacji ze strony.',
+                    (kIsWeb || defaultTargetPlatform != TargetPlatform.android)
+                        ? 'Wersja na iOS i przeglądarki (PWA) pobiera poprawki i nowości automatycznie w tle przy każdym otwarciu.'
+                        : 'Pobieraj nowości i poprawki automatycznie bez potrzeby ponownego ściągania aplikacji ze strony.',
                     style: TextStyle(
                       fontSize: 13,
                       color: isDark

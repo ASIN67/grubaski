@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <base href="/app/">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Polski dziennik posiłków, kalorii, nawodnienia i pomiarów ciała.">
+  <meta name="theme-color" content="#090A0F">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Grubasek">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/Icon-180.png">
+  <link rel="icon" type="image/png" href="favicon.png?v=__REVISION__">
+  <link rel="manifest" href="manifest.json?v=__REVISION__">
+  <title>Grubasek — dziennik kalorii i posiłków</title>
+  <style>
+    html {
+      color-scheme: dark;
+      background: #090a0f;
+      color: #f3effa;
+      font-family: system-ui, sans-serif;
+    }
+    body { margin: 0; }
+    #startup {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-content: center;
+      justify-items: center;
+      padding: 1.5rem;
+      text-align: center;
+    }
+    #startup img { border-radius: 1.125rem; }
+    #startup a { color: #c2a8ff; }
+  </style>
+  <!-- FLUTTER_HEAD_SCRIPTS -->
+</head>
+<body>
+  <div id="startup" role="status">
+    <img src="icons/Icon-192.png?v=__REVISION__" width="64" height="64" alt="">
+    <p id="startup-message">Uruchamianie Grubaska…</p>
+    <a href="/app/" id="startup-retry" hidden>Spróbuj ponownie</a>
+    <noscript>Włącz obsługę JavaScript, aby uruchomić aplikację.</noscript>
+  </div>
+  <script src="flutter_bootstrap.js?v=__REVISION__" async></script>
+</body>
+</html>

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/meal_type.dart';
@@ -35,6 +36,12 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
   }
 
   Future<void> _checkForUpdatesQuietly() async {
+    // Suppress update popups on iOS and Web PWA — those platforms update
+    // silently and automatically in the background via Service Worker.
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+
     try {
       final result = await AppUpdateService.instance.checkForUpdate();
       if (result.hasUpdate && result.latestRelease != null && mounted) {
