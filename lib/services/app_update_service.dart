@@ -43,12 +43,12 @@ class AppUpdateService {
   Future<({String version, int buildNumber})> getCurrentVersionInfo() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
-      final version = packageInfo.version.isNotEmpty ? packageInfo.version : '1.0.0';
-      final buildNumber = int.tryParse(packageInfo.buildNumber) ?? 1;
+      final version = packageInfo.version.isNotEmpty ? packageInfo.version : '1.0.1';
+      final buildNumber = int.tryParse(packageInfo.buildNumber) ?? 2;
       return (version: version, buildNumber: buildNumber);
     } catch (e) {
       debugPrint('AppUpdateService: PackageInfo.fromPlatform fallback ($e)');
-      return (version: '1.0.0', buildNumber: 1);
+      return (version: '1.0.1', buildNumber: 2);
     }
   }
 

@@ -27,6 +27,25 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isExporting = false;
   bool _isCheckingUpdate = false;
+  String _appVersion = '1.0.1';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersionInfo();
+  }
+
+  Future<void> _loadVersionInfo() async {
+    try {
+      final info =
+          await ref.read(appUpdateServiceProvider).getCurrentVersionInfo();
+      if (mounted) {
+        setState(() {
+          _appVersion = info.version;
+        });
+      }
+    } catch (_) {}
+  }
 
   Future<void> _checkForUpdateManual() async {
     setState(() => _isCheckingUpdate = true);
@@ -864,16 +883,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(Icons.system_update_rounded,
-                          color: AppColors.primary),
-                      SizedBox(width: 10),
-                      Text(
-                        'Aktualizacje aplikacji',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                      const Row(
+                        children: [
+                          Icon(Icons.system_update_rounded,
+                              color: AppColors.primary),
+                          SizedBox(width: 10),
+                          Text(
+                            'Aktualizacje aplikacji',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'v$_appVersion',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primaryLight,
+                          ),
                         ),
                       ),
                     ],
@@ -983,7 +1023,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           // Footer info
           Center(
             child: Text(
-              'Grubasek • Wersja 1.0.0 (Offline-first)',
+              'Grubasek • Wersja $_appVersion (Offline-first)',
               style: TextStyle(
                 fontSize: 12,
                 color:
