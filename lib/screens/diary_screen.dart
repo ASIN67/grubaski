@@ -185,6 +185,11 @@ class DiaryScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.emoji_events_outlined),
+            tooltip: 'Passa i Osiągnięcia',
+            onPressed: () => AchievementsSheet.show(context),
+          ),
+          IconButton(
             icon: const Icon(Icons.qr_code_scanner_rounded),
             tooltip: 'Szybkie skanowanie',
             onPressed: () =>
@@ -208,6 +213,11 @@ class DiaryScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
+            // 0. Streak & Habit Banner
+            const StreakBannerWidget(),
+
+            const SizedBox(height: 12),
+
             // 1. Horizontal Date Picker Bar
             DailyDatePickerBar(
               selectedDate: diaryState.selectedDate,

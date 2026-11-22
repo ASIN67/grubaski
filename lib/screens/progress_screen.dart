@@ -9,9 +9,10 @@ import '../providers/user_profile_provider.dart';
 import '../providers/weight_provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/date_formatter.dart';
+import '../widgets/widgets.dart';
 import 'body_measurements_view.dart';
 
-enum _ProgressView { weight, measurements }
+enum _ProgressView { weight, measurements, achievements }
 
 /// Shows weight, calorie trends and body circumference history.
 class ProgressScreen extends ConsumerStatefulWidget {
@@ -196,6 +197,11 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                   icon: Icon(Icons.straighten_outlined, size: 18),
                   label: Text('Obwody ciała'),
                 ),
+                ButtonSegment(
+                  value: _ProgressView.achievements,
+                  icon: Icon(Icons.emoji_events_outlined, size: 18),
+                  label: Text('Odznaki'),
+                ),
               ],
               selected: {_view},
               onSelectionChanged: (selection) =>
@@ -203,17 +209,21 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
             ),
           ),
           Expanded(
-            child: isWeightView
-                ? _buildWeightView(context)
-                : const BodyMeasurementsView(),
+            child: switch (_view) {
+              _ProgressView.weight => _buildWeightView(context),
+              _ProgressView.measurements => const BodyMeasurementsView(),
+              _ProgressView.achievements => const AchievementsView(),
+            },
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: onAdd,
-        icon: Icon(addIcon),
-        label: Text(addLabel),
-      ),
+      floatingActionButton: _view == _ProgressView.achievements
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: onAdd,
+              icon: Icon(addIcon),
+              label: Text(addLabel),
+            ),
     );
   }
 
@@ -264,6 +274,11 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
             targetWeight: targetWeight,
             onAddWeight: _showAddWeightDialog,
           ),
+
+          const SizedBox(height: 20),
+
+          // 3. Dynamic Weight Forecast Card (MacroFactor style)
+          const WeightForecastCard(),
 
           const SizedBox(height: 20),
 

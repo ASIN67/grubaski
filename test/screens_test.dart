@@ -101,7 +101,7 @@ void main() {
       expect(find.text('Dodaj do dziennika'), findsOneWidget);
     });
     testWidgets('DiaryScreen renders without crash and displays meals', (tester) async {
-      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.physicalSize = const Size(800, 2200);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
         tester.view.resetPhysicalSize();

@@ -1,6 +1,9 @@
+export 'achievements_view.dart';
 export 'calorie_summary_card.dart';
 export 'daily_date_picker_bar.dart';
 export 'macro_progress_ring.dart';
 export 'meal_expansion_card.dart';
+export 'streak_banner_widget.dart';
 export 'update_prompt_dialog.dart';
 export 'water_tracker_card.dart';
+export 'weight_forecast_card.dart';

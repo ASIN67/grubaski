@@ -42,12 +42,11 @@ class ProductSearchState {
 
 class ProductSearchNotifier extends StateNotifier<ProductSearchState> {
   final ProductRepository _repository;
-  final OpenFoodFactsService _remoteService;
   Timer? _debounce;
   CancelToken? _request;
   List<String> _remoteIds = const [];
 
-  ProductSearchNotifier(this._repository, this._remoteService)
+  ProductSearchNotifier(this._repository, [OpenFoodFactsService? _])
       : super(ProductSearchState(results: _repository.getAllLocalProducts()));
 
   void onQueryChanged(String input) {
@@ -100,7 +99,7 @@ class ProductSearchNotifier extends StateNotifier<ProductSearchState> {
     final request = CancelToken();
     _request = request;
     try {
-      final remoteResults = await _remoteService.searchProducts(
+      final remoteResults = await _repository.searchRemoteProducts(
         state.query,
         cancelToken: request,
         pageSize: 30,

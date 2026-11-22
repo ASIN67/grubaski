@@ -1,6 +1,7 @@
 export 'auth_provider.dart';
 export 'body_measurements_provider.dart';
 export 'diary_provider.dart';
+export 'gamification_provider.dart';
 export 'product_search_provider.dart';
 export 'theme_provider.dart';
 export 'user_profile_provider.dart';

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
@@ -250,12 +251,13 @@ class ProductRepository {
 
     // Automatically send new custom product to Supabase public_products table
     // so it is shared and available for online searches, without blocking local save.
-    unawaited(_uploadProductToSupabase(customProduct));
+    unawaited(uploadProductToSupabase(customProduct));
 
     return customProduct;
   }
 
-  Future<void> _uploadProductToSupabase(FoodProduct product) async {
+  /// Uploads a custom product to Supabase public_products table so it is shared with other users.
+  Future<void> uploadProductToSupabase(FoodProduct product) async {
     try {
       final table = _supabaseService.publicProductsTable;
       if (table == null) return;
@@ -280,6 +282,18 @@ class ProductRepository {
       debugPrint('ProductRepository: Uploaded custom product ${product.id} to Supabase.');
     } catch (e) {
       debugPrint('ProductRepository: Failed to upload custom product to Supabase: $e');
+    }
+  }
+
+  /// Pushes any local custom products to Supabase in the background.
+  Future<void> syncLocalCustomProducts() async {
+    try {
+      final custom = getCustomProducts();
+      for (final product in custom) {
+        unawaited(uploadProductToSupabase(product));
+      }
+    } catch (e) {
+      debugPrint('ProductRepository: Failed to sync local custom products: $e');
     }
   }
 
@@ -468,6 +482,58 @@ class ProductRepository {
     }
   }
 
+  /// Searches online catalogs (Supabase shared catalog first, then Open Food Facts).
+  /// Respects [cancelToken] to abort in-flight requests when typing quickly.
+  Future<List<FoodProduct>> searchRemoteProducts(
+    String query, {
+    int pageSize = 30,
+    CancelToken? cancelToken,
+  }) async {
+    final cleanQuery = query.trim();
+    if (cleanQuery.length < 2) return const [];
+
+    try {
+      final remoteFutures = <Future<List<FoodProduct>>>[
+        _searchSupabaseProducts(cleanQuery, limit: pageSize),
+        _openFoodFactsService
+            .searchProducts(
+              cleanQuery,
+              pageSize: pageSize,
+              cancelToken: cancelToken,
+            )
+            .catchError((e) {
+          debugPrint('Open Food Facts search failed: $e');
+          return <FoodProduct>[];
+        }),
+      ];
+
+      final results = await Future.wait(remoteFutures);
+      if (cancelToken?.isCancelled ?? false) return const [];
+
+      final seenIds = <String>{};
+      final seenBarcodes = <String>{};
+      final merged = <FoodProduct>[];
+
+      for (final list in results) {
+        for (final product in list) {
+          if (!seenIds.add(product.id)) continue;
+          final barcode = product.barcode;
+          if (barcode != null &&
+              barcode.isNotEmpty &&
+              !seenBarcodes.add(barcode)) {
+            continue;
+          }
+          merged.add(product);
+        }
+      }
+
+      return merged;
+    } catch (e) {
+      debugPrint('Remote product search failed: $e');
+      return const [];
+    }
+  }
+
   Future<List<FoodProduct>> _searchSupabaseProducts(
     String query, {
     int limit = 25,
@@ -478,9 +544,28 @@ class ProductRepository {
       final clean = query.trim();
       if (clean.isEmpty) return const [];
 
+      final sanitized = clean.replaceAll(RegExp(r'[,()"\\]'), ' ').trim();
+      final tokens = sanitized
+          .split(RegExp(r'\s+'))
+          .where((t) => t.length >= 2)
+          .toList(growable: false);
+
+      final conditions = <String>[
+        'name.ilike.%$sanitized%',
+        'brand.ilike.%$sanitized%',
+      ];
+      if (RegExp(r'^\d+$').hasMatch(sanitized)) {
+        conditions.add('barcode.eq.$sanitized');
+      }
+      for (final token in tokens.take(3)) {
+        if (token != sanitized) {
+          conditions.add('name.ilike.%$token%');
+        }
+      }
+
       final response = await table
           .select()
-          .or('name.ilike.%$clean%,brand.ilike.%$clean%,barcode.eq.$clean')
+          .or(conditions.join(','))
           .limit(limit);
 
       final list = <FoodProduct>[];

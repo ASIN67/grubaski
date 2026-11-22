@@ -14,6 +14,11 @@ class WaterRepository {
 
   Box<DailyWaterLog> get _box => _hiveService.waterLogsBox;
 
+  /// Retrieves all recorded daily water logs from storage.
+  List<DailyWaterLog> getAllLogs() {
+    return _box.values.toList();
+  }
+
   /// Retrieves the water log for a given [dateKey] (YYYY-MM-DD).
   /// If no log exists for this date, returns a [DailyWaterLog] with 0 ml.
   DailyWaterLog getWaterLog(String dateKey) {

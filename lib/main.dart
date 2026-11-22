@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'providers/theme_provider.dart';
+import 'repositories/product_repository.dart';
 import 'repositories/user_repository.dart';
 import 'screens/main_navigation_screen.dart';
 import 'screens/onboarding_screen.dart';
@@ -31,7 +32,10 @@ Future<void> main() async {
   // 3. Initialize Supabase cloud service (safe offline fallback if unconfigured)
   await SupabaseService.instance.init();
 
-  // 3. Check if user has already completed onboarding
+  // 4. Background push of any local custom products to shared Supabase catalog
+  ProductRepository().syncLocalCustomProducts();
+
+  // 5. Check if user has already completed onboarding
   final userRepository = UserRepository();
   final bool isOnboardingCompleted = userRepository.hasProfile;
 

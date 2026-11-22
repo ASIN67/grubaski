@@ -2,6 +2,7 @@ export 'app_release_info.dart';
 export 'body_measurements_entry.dart';
 export 'daily_water_log.dart';
 export 'food_product.dart';
+export 'gamification_models.dart';
 export 'meal_entry.dart';
 export 'meal_type.dart';
 export 'user_profile.dart';

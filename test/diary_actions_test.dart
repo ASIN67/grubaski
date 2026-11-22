@@ -67,6 +67,8 @@ void main() {
       const ProviderScope(child: MaterialApp(home: DiaryScreen())),
     );
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text(product.name));
+    await tester.pumpAndSettle();
     await tester.tap(find.text(product.name));
     await tester.pumpAndSettle();
 

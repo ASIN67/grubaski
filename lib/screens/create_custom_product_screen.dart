@@ -1,8 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:uuid/uuid.dart';
 import '../models/food_product.dart';
-import '../services/hive_service.dart';
+import '../repositories/product_repository.dart';
 import '../utils/app_colors.dart';
 
 /// Screen allowing the user to create and save a custom food product.
@@ -118,8 +119,10 @@ class _CreateCustomProductScreenState extends State<CreateCustomProductScreen> {
         isCustom: true,
       );
 
-      // Save directly to Hive box
-      await HiveService.instance.foodProductsBox.put(product.id, product);
+      // Save locally to Hive box and immediately upload to Supabase public_products
+      final productRepo = ProductRepository();
+      await productRepo.saveProduct(product);
+      unawaited(productRepo.uploadProductToSupabase(product));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
