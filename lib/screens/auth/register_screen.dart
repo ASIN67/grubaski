@@ -20,6 +20,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -30,37 +31,46 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _submit() async {
-    ref.read(authProvider.notifier).clearError();
-    if (!_formKey.currentState!.validate()) return;
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
 
-    final result = await ref.read(authProvider.notifier).signUp(
-          email: _emailController.text.trim(),
-          password: _passwordController.text,
-        );
+    try {
+      ref.read(authProvider.notifier).clearError();
+      if (!_formKey.currentState!.validate()) return;
 
-    if (!mounted) return;
-
-    if (result.status == SignUpStatus.signedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Konto zostało utworzone pomyślnie! Zalogowano.'),
-          backgroundColor: AppColors.primary,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      Navigator.of(context).pop(true);
-    } else if (result.status == SignUpStatus.needsEmailConfirmation) {
-      final email = _emailController.text.trim();
-      final navigator = Navigator.of(context);
-      final verified = await navigator.push<bool>(
-        MaterialPageRoute(
-          builder: (context) => EmailVerificationScreen(email: email),
-        ),
-      );
+      final result = await ref.read(authProvider.notifier).signUp(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
 
       if (!mounted) return;
-      if (verified == true) {
-        navigator.pop(true);
+
+      if (result.status == SignUpStatus.signedIn) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Konto zostało utworzone pomyślnie! Zalogowano.'),
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        Navigator.of(context).pop(true);
+      } else if (result.status == SignUpStatus.needsEmailConfirmation) {
+        final email = _emailController.text.trim();
+        final navigator = Navigator.of(context);
+        final verified = await navigator.push<bool>(
+          MaterialPageRoute(
+            builder: (context) => EmailVerificationScreen(email: email),
+          ),
+        );
+
+        if (!mounted) return;
+        if (verified == true) {
+          navigator.pop(true);
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
       }
     }
   }
@@ -368,11 +378,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     Container(
                       height: 52,
                       decoration: BoxDecoration(
-                        gradient: authState.isLoading
+                        gradient: (authState.isLoading || _isSubmitting)
                             ? null
                             : AppColors.primaryGradient,
                         borderRadius: BorderRadius.circular(16),
-                        boxShadow: authState.isLoading
+                        boxShadow: (authState.isLoading || _isSubmitting)
                             ? null
                             : [
                                 BoxShadow(
@@ -383,7 +393,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               ],
                       ),
                       child: ElevatedButton(
-                        onPressed: authState.isLoading ? null : _submit,
+                        onPressed:
+                            (authState.isLoading || _isSubmitting) ? null : _submit,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
@@ -391,7 +402,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        child: authState.isLoading
+                        child: (authState.isLoading || _isSubmitting)
                             ? const SizedBox(
                                 width: 22,
                                 height: 22,

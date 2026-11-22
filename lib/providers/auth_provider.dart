@@ -477,9 +477,11 @@ class AuthNotifier extends StateNotifier<UserAuthState> {
       return 'Konto z tym adresem e-mail już istnieje.';
     } else if (lower.contains('password should be at least')) {
       return 'Hasło musi zawierać co najmniej 6 znaków.';
-    } else if (lower.contains('rate limit') ||
+    } else if (lower.contains('over_email_send_rate_limit') ||
+        lower.contains('email rate limit') ||
+        lower.contains('rate limit') ||
         lower.contains('too many requests')) {
-      return 'Zbyt wiele prób w krótkim czasie. Odczekaj chwilę.';
+      return 'Zbyt wiele prób wysyłania e-maili w chmurze (limit darmowego Supabase: 3 maile/godz.). Odczekaj chwilę lub wyłącz "Confirm email" w panelu Supabase.';
     } else if (lower.contains('network') ||
         lower.contains('connection') ||
         lower.contains('połączenia')) {
