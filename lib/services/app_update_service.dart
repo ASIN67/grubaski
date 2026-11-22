@@ -51,12 +51,12 @@ class AppUpdateService {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
       final version =
-          packageInfo.version.isNotEmpty ? packageInfo.version : '1.0.2';
-      final buildNumber = int.tryParse(packageInfo.buildNumber) ?? 3;
+          packageInfo.version.isNotEmpty ? packageInfo.version : '1.0.3';
+      final buildNumber = int.tryParse(packageInfo.buildNumber) ?? 4;
       return (version: version, buildNumber: buildNumber);
     } catch (e) {
       debugPrint('AppUpdateService: PackageInfo.fromPlatform fallback ($e)');
-      return (version: '1.0.2', buildNumber: 3);
+      return (version: '1.0.3', buildNumber: 4);
     }
   }
 
@@ -90,8 +90,8 @@ class AppUpdateService {
     String? currentVersionOverride,
     int? currentBuildOverride,
   }) async {
-    String currentVersion = currentVersionOverride ?? '1.0.2';
-    int currentBuildNumber = currentBuildOverride ?? 3;
+    String currentVersion = currentVersionOverride ?? '1.0.3';
+    int currentBuildNumber = currentBuildOverride ?? 4;
 
     if (currentVersionOverride == null || currentBuildOverride == null) {
       final info = await getCurrentVersionInfo();
