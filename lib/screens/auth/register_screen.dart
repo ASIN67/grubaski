@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/app_colors.dart';
-import 'email_verification_screen.dart';
 
-/// Screen allowing new users to create an account in Supabase.
+/// Screen allowing new users to create an account in Supabase using email and password.
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
@@ -38,9 +37,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       ref.read(authProvider.notifier).clearError();
       if (!_formKey.currentState!.validate()) return;
 
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
+
       final result = await ref.read(authProvider.notifier).signUp(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
+            email: email,
+            password: password,
           );
 
       if (!mounted) return;
@@ -49,23 +51,41 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Konto zostało utworzone pomyślnie! Zalogowano.'),
-            backgroundColor: AppColors.primary,
+            backgroundColor: Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
           ),
         );
         Navigator.of(context).pop(true);
       } else if (result.status == SignUpStatus.needsEmailConfirmation) {
-        final email = _emailController.text.trim();
-        final navigator = Navigator.of(context);
-        final verified = await navigator.push<bool>(
-          MaterialPageRoute(
-            builder: (context) => EmailVerificationScreen(email: email),
-          ),
-        );
+        // Attempt immediate login with password
+        final loginOk = await ref.read(authProvider.notifier).signIn(
+              email: email,
+              password: password,
+            );
+        if (loginOk && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Konto zostało utworzone pomyślnie! Zalogowano.'),
+              backgroundColor: Color(0xFF10B981),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          Navigator.of(context).pop(true);
+          return;
+        }
 
-        if (!mounted) return;
-        if (verified == true) {
-          navigator.pop(true);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                result.message ??
+                    'Konto zostało utworzone! Możesz się teraz zalogować.',
+              ),
+              backgroundColor: AppColors.primary,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          Navigator.of(context).pop(true);
         }
       }
     } finally {

@@ -247,16 +247,35 @@ class AuthNotifier extends StateNotifier<UserAuthState> {
           message: 'Konto utworzone pomyślnie! Zalogowano.',
         );
       } else if (user != null) {
+        // Attempt automatic login with the provided credentials
+        try {
+          final signInResp = await _supabaseService.signInWithPassword(
+            email: email.trim(),
+            password: password,
+          );
+          if (signInResp.user != null) {
+            state = state.copyWith(
+              status: AuthStatus.authenticated,
+              user: () => signInResp.user,
+              email: () => signInResp.user?.email,
+              pendingConfirmationEmail: () => null,
+              errorMessage: () => null,
+            );
+            return const SignUpResult(
+              status: SignUpStatus.signedIn,
+              message: 'Konto utworzone pomyślnie! Zalogowano.',
+            );
+          }
+        } catch (_) {}
+
         state = state.copyWith(
           status: AuthStatus.unauthenticated,
-          pendingConfirmationEmail: () => email.trim(),
+          pendingConfirmationEmail: () => null,
           errorMessage: () => null,
         );
-        return SignUpResult(
-          status: SignUpStatus.needsEmailConfirmation,
-          email: email.trim(),
-          message:
-              'Wysłaliśmy 6-cyfrowy kod potwierdzający na adres ${email.trim()}. Wpisz go, aby aktywować konto.',
+        return const SignUpResult(
+          status: SignUpStatus.signedIn,
+          message: 'Konto zostało utworzone pomyślnie! Możesz się teraz zalogować.',
         );
       } else {
         const msg = 'Rejestracja nie powiodła się. Spróbuj ponownie.';
