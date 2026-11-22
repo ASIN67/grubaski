@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0b0912">
-  <meta name="description" content="Grubasek to dziennik kalorii, posiłków i nawodnienia. Pobierz APK na Androida lub uruchom aplikację webową na iPhonie.">
+  <meta name="description" content="Pobierz Grubaska, dziennik kalorii i posiłków na Androida i iPhone’a. Poznaj też Pakerka, nadchodzącą aplikację treningową.">
   <link rel="canonical" href="https://grubasek.pages.dev/">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="pl_PL">
@@ -38,6 +38,7 @@
       <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
       <symbol id="i-expand" viewBox="0 0 24 24"><path d="M14 4h6v6m0-6-7 7M10 20H4v-6m0 6 7-7"/></symbol>
       <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v15m-6-6 6 6 6-6"/></symbol>
+      <symbol id="i-dumbbell" viewBox="0 0 24 24"><path d="M9 12h6M6 6h2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Zm10 0h2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1ZM5 9H3a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h2m14-6h2a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2"/></symbol>
     </defs>
   </svg>
 
@@ -50,7 +51,7 @@
       <nav aria-label="Nawigacja główna">
         <a class="nav-link" href="#mozliwosci">Funkcje</a>
         <a class="nav-link nav-link-wide" href="#podglad">Podgląd</a>
-        <a class="nav-link nav-link-wide" href="#jak-zaczac">Jak zacząć</a>
+        <a class="nav-link nav-pakerek" href="#pakerek">Pakerek</a>
         <a class="button button-nav" href="#pobieranie"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>Pobieranie</a>
       </nav>
     </div>
@@ -72,7 +73,7 @@
               <svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg><span><small>Otwórz w Safari</small>iPhone</span>
             </a>
           </div>
-          <p class="hero-meta"><svg class="icon" aria-hidden="true"><use href="#i-local"></use></svg>Bez konta <span aria-hidden="true"></span> Dziennik offline</p>
+          <p class="hero-meta"><svg class="icon" aria-hidden="true"><use href="#i-local"></use></svg>Bez konta <span aria-hidden="true"></span> Dziennik offline <span class="hero-update-divider" aria-hidden="true"></span> <a href="#nowosci">Co nowego w 1.0.4?</a></p>
         </div>
 
         <figure class="hero-visual" data-parallax data-scroll-art>
@@ -86,6 +87,37 @@
           </div>
           <figcaption><a href="#podglad">Zobacz ekrany aplikacji <svg class="icon" aria-hidden="true"><use href="#i-down"></use></svg></a></figcaption>
         </figure>
+      </div>
+    </section>
+
+    <section class="pakerek wrap" id="pakerek" aria-labelledby="pakerek-title">
+      <div class="pakerek-panel" data-reveal>
+        <div class="pakerek-brand">
+          <div class="pakerek-icon"><svg class="icon" aria-hidden="true"><use href="#i-dumbbell"></use></svg></div>
+          <div>
+            <h2 id="pakerek-title">Pakerek</h2>
+            <p class="pakerek-status">Jeszcze niedostępna</p>
+          </div>
+        </div>
+        <div class="pakerek-copy">
+          <p class="pakerek-slogan">„Grubasek pilnuje michy, <strong>Pakerek robi formę”</strong></p>
+          <p>Aplikacja treningowa od twórców Grubaska.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="release-notes wrap" id="nowosci" aria-labelledby="nowosci-title">
+      <div class="release-notes-panel" data-reveal>
+        <div class="release-notes-header">
+          <h2 id="nowosci-title">Co nowego w Grubasku 1.0.4?</h2>
+          <a class="release-alternative" href="#pobieranie">Przejdź do pobierania <svg class="icon" aria-hidden="true"><use href="#i-down"></use></svg></a>
+        </div>
+        <ul class="release-notes-grid" role="list">
+          <li><h3>Przepisy społeczności</h3><p>Przeglądaj przepisy innych osób i publikuj własne.</p></li>
+          <li><h3>Pomysły na posiłki z AI</h3><p>Dobierz posiłek do kalorii i makroskładników, które zostały Ci do celu.</p></li>
+          <li><h3>Kopiowanie posiłków</h3><p>Skopiuj pojedynczy posiłek lub przenieś cały wczorajszy jadłospis do dziś.</p></li>
+          <li><h3>Widżet na Androida</h3><p>Zobacz dzienny bilans kalorii i makroskładników na ekranie głównym.</p></li>
+        </ul>
       </div>
     </section>
 
@@ -230,7 +262,7 @@
               <div class="release-icon release-icon-ios"><svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg></div>
               <div>
                 <h3>iPhone</h3>
-                <p>Aplikacja webowa · iOS</p>
+                <p id="web-release-info">Aplikacja webowa · iOS</p>
               </div>
             </div>
             <p class="release-help">Otwórz poradnik w Safari. Pokaże Ci, jak dodać ikonę aplikacji do ekranu głównego.</p>
@@ -277,6 +309,7 @@
       </a>
       <div class="footer-links">
         <a class="footer-link" href="#mozliwosci">Funkcje</a>
+        <a class="footer-link" href="#pakerek">Pakerek</a>
         <a class="footer-link" href="#pytania">Pytania</a>
         <a class="footer-link" href="#pobieranie">Pobieranie</a>
       </div>
