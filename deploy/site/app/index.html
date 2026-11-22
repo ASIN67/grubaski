@@ -14,6 +14,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="icons/Icon-180.png">
   <link rel="icon" type="image/png" href="favicon.png?v=__REVISION__">
   <link rel="manifest" href="manifest.json?v=__REVISION__">
+  <link rel="stylesheet" href="ios-guide.css?v=__REVISION__">
   <title>Grubasek — dziennik kalorii i posiłków</title>
   <style>
     html {
@@ -23,6 +24,7 @@
       font-family: system-ui, sans-serif;
     }
     body { margin: 0; }
+    [hidden] { display: none !important; }
     #startup {
       position: fixed;
       inset: 0;
@@ -44,6 +46,34 @@
     <a href="/app/" id="startup-retry" hidden>Spróbuj ponownie</a>
     <noscript>Włącz obsługę JavaScript, aby uruchomić aplikację.</noscript>
   </div>
-  <script src="flutter_bootstrap.js?v=__REVISION__" async></script>
+  <main id="ios-guide" class="ios-guide" aria-labelledby="ios-guide-title" hidden>
+    <div class="ios-guide-card">
+      <img class="ios-guide-icon" src="icons/Icon-180.png" width="56" height="56" alt="">
+      <h1 id="ios-guide-title" tabindex="-1">Grubasek na iPhonie</h1>
+      <p>Dodaj aplikację do ekranu głównego, żeby otwierać ją prosto z ikony.</p>
+
+      <ol class="ios-guide-steps">
+        <li>
+          <strong>Otwórz Grubaska w Safari</strong>
+          <span>Stuknij „Udostępnij” (kwadrat ze strzałką).</span>
+        </li>
+        <li>
+          <strong>Wybierz „Do ekranu głównego”</strong>
+          <span>Jeśli widzisz opcję „Otwórz jako aplikację www”, włącz ją.</span>
+        </li>
+        <li>
+          <strong>Stuknij „Dodaj”</strong>
+          <span>Ikona Grubaska pojawi się na ekranie głównym.</span>
+        </li>
+      </ol>
+
+      <button id="ios-guide-continue" class="ios-guide-continue" type="button">
+        Przeczytałem, uruchom Grubaska
+      </button>
+      <p class="ios-guide-note">Możesz też korzystać z aplikacji w przeglądarce.</p>
+    </div>
+  </main>
+
+  <script src="app-entry.js?v=__REVISION__" data-bootstrap="flutter_bootstrap.js?v=__REVISION__" defer></script>
 </body>
 </html>

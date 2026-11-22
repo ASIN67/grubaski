@@ -1,0 +1,121 @@
+.ios-guide {
+  box-sizing: border-box;
+  display: grid;
+  min-height: 100vh;
+  min-height: 100svh;
+  place-items: center;
+  padding: max(1.25rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1.25rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  background: radial-gradient(ellipse at 50% 0%, #251836 0%, #0a0911 68%);
+}
+
+.ios-guide-card {
+  box-sizing: border-box;
+  width: min(100%, 30rem);
+  padding: clamp(1.25rem, 5vw, 2rem);
+  border: 1px solid #433354;
+  border-radius: 1.5rem;
+  background: linear-gradient(145deg, #1e172b, #12101b);
+  box-shadow: 0 1.5rem 4rem #05040a73;
+}
+
+.ios-guide-icon {
+  display: block;
+  margin-bottom: 1rem;
+  border: 1px solid #ffffff32;
+  border-radius: 1rem;
+  box-shadow: 0 .5rem 1.5rem #9266e14a;
+}
+
+.ios-guide h1 {
+  margin: 0 0 .45rem;
+  font-size: clamp(1.7rem, 7vw, 2.2rem);
+  line-height: 1.12;
+  letter-spacing: -.045em;
+}
+
+.ios-guide h1:focus { outline: none; }
+
+.ios-guide p {
+  margin: 0;
+  color: #cdc3dc;
+  line-height: 1.5;
+}
+
+.ios-guide-steps {
+  margin: 1.25rem 0;
+  padding: .15rem .85rem .15rem 2.1rem;
+  border: 1px solid #3a2c49;
+  border-radius: 1rem;
+  background: #0f0c17a6;
+}
+
+.ios-guide-steps li {
+  padding: .7rem 0 .7rem .15rem;
+}
+
+.ios-guide-steps li + li {
+  border-top: 1px solid #372d45;
+}
+
+.ios-guide-steps li::marker {
+  color: #cbb1ff;
+  font-weight: 750;
+}
+
+.ios-guide-steps strong,
+.ios-guide-steps span {
+  display: block;
+}
+
+.ios-guide-steps strong {
+  font-size: .98rem;
+  line-height: 1.35;
+}
+
+.ios-guide-steps span {
+  margin-top: .2rem;
+  color: #cdc3dc;
+  font-size: .9rem;
+  line-height: 1.4;
+}
+
+.ios-guide-continue {
+  width: 100%;
+  min-height: 3rem;
+  padding: .7rem .85rem;
+  border: 0;
+  border-radius: .85rem;
+  background: #cbb1ff;
+  box-shadow: 0 .4rem 1.4rem #a46cf735, inset 0 1px #ffffff6b;
+  color: #201332;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 750;
+}
+
+.ios-guide-continue:focus-visible {
+  outline: 2px solid #e2ceff;
+  outline-offset: 4px;
+}
+
+.ios-guide-continue:hover {
+  background: #e2ceff;
+}
+
+.ios-guide .ios-guide-note {
+  margin-top: .75rem;
+  text-align: center;
+  font-size: .85rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ios-guide-card {
+    animation: guide-appear .28s ease-out both;
+  }
+}
+
+@keyframes guide-appear {
+  from { opacity: 0; transform: translateY(.5rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
