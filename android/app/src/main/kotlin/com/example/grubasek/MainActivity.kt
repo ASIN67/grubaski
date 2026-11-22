@@ -34,12 +34,12 @@ class MainActivity: FlutterActivity() {
 
                         // Check unknown sources installation permission on Android 8.0+ (Oreo)
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            if (!context.packageManager.canRequestPackageInstalls()) {
+                            if (!packageManager.canRequestPackageInstalls()) {
                                 val settingsIntent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                                    data = Uri.parse("package:${context.packageName}")
+                                    data = Uri.parse("package:$packageName")
                                     flags = Intent.FLAG_ACTIVITY_NEW_TASK
                                 }
-                                context.startActivity(settingsIntent)
+                                startActivity(settingsIntent)
                                 result.error(
                                     "PERMISSION_REQUIRED",
                                     "Wymagane zezwolenie na instalowanie aplikacji z tego źródła w ustawieniach systemu Android.",
@@ -50,8 +50,8 @@ class MainActivity: FlutterActivity() {
                         }
 
                         val apkUri: Uri = FileProvider.getUriForFile(
-                            context,
-                            "${context.packageName}.fileprovider",
+                            this,
+                            "$packageName.fileprovider",
                             file
                         )
 
@@ -60,7 +60,7 @@ class MainActivity: FlutterActivity() {
                             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
                         }
 
-                        context.startActivity(installIntent)
+                        startActivity(installIntent)
                         result.success(true)
                     } catch (e: Exception) {
                         result.error("INSTALL_ERROR", e.localizedMessage ?: "Błąd uruchamiania instalatora", null)
@@ -68,7 +68,7 @@ class MainActivity: FlutterActivity() {
                 }
                 "canInstallUnknownPackages" -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        result.success(context.packageManager.canRequestPackageInstalls())
+                        result.success(packageManager.canRequestPackageInstalls())
                     } else {
                         result.success(true)
                     }
@@ -77,10 +77,10 @@ class MainActivity: FlutterActivity() {
                     try {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                             val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                                data = Uri.parse("package:${context.packageName}")
+                                data = Uri.parse("package:$packageName")
                                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
                             }
-                            context.startActivity(intent)
+                            startActivity(intent)
                             result.success(true)
                         } else {
                             result.success(true)
