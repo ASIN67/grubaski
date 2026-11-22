@@ -272,7 +272,36 @@
     });
   }
 
+  function initScreenPreview() {
+    const dialog = document.querySelector(".preview-dialog");
+    if (!dialog || typeof dialog.showModal !== "function") return;
+
+    const title = dialog.querySelector("h2");
+    const image = dialog.querySelector("img");
+    let opener;
+
+    for (const link of document.querySelectorAll("[data-screen-preview]")) {
+      link.setAttribute("aria-haspopup", "dialog");
+      link.addEventListener("click", (event) => {
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return;
+        event.preventDefault();
+        opener = link;
+        title.textContent = link.dataset.screenPreview;
+        image.src = link.href;
+        image.alt = link.querySelector("img").alt;
+        dialog.showModal();
+        image.parentElement.scrollTop = 0;
+      });
+    }
+
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+    dialog.addEventListener("close", () => opener?.focus({ preventScroll: true }));
+  }
+
   initTabs();
+  initScreenPreview();
   initScrollFeedback(initReveals());
   initParallax();
 })();

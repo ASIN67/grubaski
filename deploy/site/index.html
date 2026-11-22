@@ -11,6 +11,8 @@
   <meta property="og:title" content="Grubasek — dziennik kalorii i posiłków">
   <meta property="og:description" content="Zapisuj posiłki, licz makroskładniki i śledź postępy we własnym tempie.">
   <meta property="og:url" content="https://grubasek.pages.dev/">
+  <meta property="og:image" content="https://grubasek.pages.dev/app/icons/Icon-512.png">
+  <meta property="og:image:alt" content="Ikona Grubaska">
   <title>Grubasek — dziennik kalorii i posiłków</title>
   <link rel="icon" href="./assets/grubasek.png" type="image/png">
   <link rel="apple-touch-icon" sizes="180x180" href="/app/icons/Icon-180.png">
@@ -34,6 +36,8 @@
       <symbol id="i-scan" viewBox="0 0 24 24"><path d="M8 4H4v4m12-4h4v4M8 20H4v-4m12 4h4v-4M7 9v6m3-6v6m4-6v6m3-6v6"/></symbol>
       <symbol id="i-local" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M10 17h4m-4-6 1.5 1.5L14 10"/></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+      <symbol id="i-expand" viewBox="0 0 24 24"><path d="M14 4h6v6m0-6-7 7M10 20H4v-6m0 6 7-7"/></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v15m-6-6 6 6 6-6"/></symbol>
     </defs>
   </svg>
 
@@ -58,27 +62,29 @@
       <div class="wrap hero-inner">
         <div class="hero-copy">
           <p class="eyebrow">Dziennik kalorii i posiłków</p>
-          <h1 id="tytul">Jedz po<br><em>swojemu.</em></h1>
-          <p class="hero-lead">Zapisuj posiłki, licz makroskładniki i śledź postępy we własnym tempie.</p>
+          <h1 id="tytul">Twój dzień<br><em>na talerzu.</em></h1>
+          <p class="hero-lead">Zapisuj posiłki i wodę. Sprawdź, ile kalorii i makroskładników zostało Ci dziś do celu.</p>
           <div class="hero-actions">
-            <a class="button button-primary" href="#pobieranie"><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>Pobierz aplikację</a>
-            <a class="button button-secondary" href="#podglad">Zobacz aplikację</a>
+            <a class="button button-primary" href="#pobieranie" data-apk-download="url" aria-label="Pobierz APK na Androida">
+              <svg class="icon" aria-hidden="true"><use href="#i-android"></use></svg><span><small>Pobierz APK</small>Android</span>
+            </a>
+            <a class="button button-secondary" href="/app/?instalacja=ios" aria-label="Otwórz Grubaska na iPhonie">
+              <svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg><span><small>Otwórz w Safari</small>iPhone</span>
+            </a>
           </div>
-          <p class="hero-meta"><svg class="icon" aria-hidden="true"><use href="#i-local"></use></svg>Bez zakładania konta <span aria-hidden="true"></span> Dziennik offline</p>
+          <p class="hero-meta"><svg class="icon" aria-hidden="true"><use href="#i-local"></use></svg>Bez konta <span aria-hidden="true"></span> Dziennik offline</p>
         </div>
 
         <figure class="hero-visual" data-parallax data-scroll-art>
           <div class="hero-stage">
-            <div class="orbit orbit-outer" aria-hidden="true"></div>
-            <div class="orbit orbit-inner" aria-hidden="true"></div>
-            <div class="phone phone-progress">
-              <img src="./assets/postepy.png" alt="Ekran Postępy z wykresem obwodu pasa i historią pomiarów" width="786" height="1704">
+            <div class="hero-photo">
+              <img src="./assets/hero-posilek.webp" srcset="./assets/hero-posilek-720.webp 720w, ./assets/hero-posilek.webp 1280w" sizes="(max-width: 820px) 90vw, 50vw" alt="" width="1280" height="853" fetchpriority="high">
             </div>
-            <div class="phone phone-diary">
-              <img src="./assets/dziennik.png" alt="Ekran Dziennika z bilansem kalorii, makroskładnikami i nawodnieniem" width="786" height="1704" fetchpriority="high">
+            <div class="phone">
+              <img src="./assets/dziennik-podglad.webp" alt="Dziennik Grubaska z przykładowym bilansem kalorii, makroskładników i wody" width="448" height="971">
             </div>
           </div>
-          <figcaption>Ekrany aplikacji z przykładowymi danymi</figcaption>
+          <figcaption><a href="#podglad">Zobacz ekrany aplikacji <svg class="icon" aria-hidden="true"><use href="#i-down"></use></svg></a></figcaption>
         </figure>
       </div>
     </section>
@@ -124,7 +130,10 @@
         </div>
         <div class="demo-panel" data-demo-panel="diary" data-reveal>
           <figure class="demo-screen">
-            <img src="./assets/dziennik.png" alt="Ekran Dziennika z dziennym bilansem i licznikiem wody" width="786" height="1704" loading="lazy">
+            <a class="screen-preview" href="./assets/dziennik.png" data-screen-preview="Dziennik" aria-label="Powiększ ekran Dziennika">
+              <img src="./assets/dziennik-podglad.webp" alt="Ekran Dziennika z dziennym bilansem i licznikiem wody" width="448" height="971" loading="lazy">
+              <span><svg class="icon" aria-hidden="true"><use href="#i-expand"></use></svg>Powiększ ekran</span>
+            </a>
             <figcaption>Przykładowe dane</figcaption>
           </figure>
           <div class="demo-copy">
@@ -139,7 +148,10 @@
         </div>
         <div class="demo-panel" data-demo-panel="progress" data-reveal>
           <figure class="demo-screen">
-            <img src="./assets/postepy.png" alt="Ekran Postępy z wykresem obwodu pasa i datami pomiarów" width="786" height="1704" loading="lazy">
+            <a class="screen-preview" href="./assets/postepy.png" data-screen-preview="Postępy" aria-label="Powiększ ekran Postępów">
+              <img src="./assets/postepy-podglad.webp" alt="Ekran Postępy z wykresem obwodu pasa i datami pomiarów" width="448" height="971" loading="lazy">
+              <span><svg class="icon" aria-hidden="true"><use href="#i-expand"></use></svg>Powiększ ekran</span>
+            </a>
             <figcaption>Przykładowe dane</figcaption>
           </figure>
           <div class="demo-copy">
@@ -162,7 +174,7 @@
           <div class="tile-icon"><svg class="icon" aria-hidden="true"><use href="#i-local"></use></svg></div>
           <div>
             <h3>Dziennik działa offline</h3>
-            <p>Zapisane posiłki, ulubione, przepisy i pomiary są dostępne na urządzeniu. Wyszukiwanie nowych produktów w Open Food Facts wymaga internetu.</p>
+            <p>Ponad 2 800 produktów znajdziesz w bazie offline. Posiłki, przepisy i pomiary zapisują się na urządzeniu. Z internetem możesz też szukać produktów w Open Food Facts.</p>
           </div>
         </aside>
       </div>
@@ -193,29 +205,38 @@
 
     <section class="downloads wrap" id="pobieranie" aria-labelledby="pobieranie-title">
       <div class="download-panel" data-reveal>
-        <h2 id="pobieranie-title">Pobierz Grubaska</h2>
+        <div class="download-heading">
+          <h2 id="pobieranie-title">Pobierz Grubaska</h2>
+          <p>Wybierz swój telefon. Obie wersje są darmowe.</p>
+        </div>
         <div class="release-options">
           <div class="release-card">
             <div class="release-top">
               <div class="release-icon"><svg class="icon" aria-hidden="true"><use href="#i-android"></use></svg></div>
               <div>
                 <h3>Android</h3>
-                <p id="release-info">Plik instalacyjny APK</p>
+                <p id="release-info">Plik APK · ARM64</p>
               </div>
             </div>
-            <p class="release-status" id="release-status">Instalator w przygotowaniu</p>
-            <a class="button button-primary release-download" id="release-download" hidden><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>Pobierz APK</a>
+            <p class="release-help">Pobierz instalator i otwórz go na telefonie z Androidem.</p>
+            <div class="release-actions">
+              <a class="button button-primary release-download" data-apk-download="url" hidden><svg class="icon" aria-hidden="true"><use href="#i-download"></use></svg>Pobierz APK</a>
+              <a class="release-alternative" data-apk-download="legacyUrl" hidden>Pobierz APK na Androida 32-bit</a>
+              <a class="release-alternative" id="release-fallback" href="https://github.com/ASIN67/grubaski/releases/tag/latest">Zobacz wydanie na GitHubie</a>
+            </div>
           </div>
           <div class="release-card">
             <div class="release-top">
               <div class="release-icon release-icon-ios"><svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg></div>
               <div>
-                <h3>iOS</h3>
-                <p>Aplikacja webowa na iPhone’a</p>
+                <h3>iPhone</h3>
+                <p>Aplikacja webowa · iOS</p>
               </div>
             </div>
-            <a class="button button-primary release-download" href="/app/?instalacja=ios">Uruchom na iPhonie</a>
-            <p class="release-help">Przed startem pokażemy Ci, jak dodać Grubaska do ekranu głównego.</p>
+            <p class="release-help">Otwórz poradnik w Safari. Pokaże Ci, jak dodać ikonę aplikacji do ekranu głównego.</p>
+            <div class="release-actions">
+              <a class="button button-secondary release-download" href="/app/?instalacja=ios"><svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg>Otwórz poradnik na iPhone’a</a>
+            </div>
           </div>
         </div>
       </div>
@@ -240,6 +261,10 @@
           <summary>Jak zainstalować Grubaska?</summary>
           <p>Na Androidzie pobierz plik APK. Na iPhonie otwórz darmową wersję webową w Safari i dodaj ją do ekranu głównego. Oba przyciski znajdziesz w <a href="#pobieranie">sekcji pobierania</a>.</p>
         </details>
+        <details data-reveal>
+          <summary>Jak pobrać aktualizację na iPhonie?</summary>
+          <p>Zamknij Grubaska i otwórz go ponownie z ekranu głównego, gdy masz połączenie z internetem. Aplikacja pobierze opublikowaną wersję pod tym samym adresem.</p>
+        </details>
       </div>
     </section>
   </main>
@@ -257,6 +282,13 @@
       </div>
     </div>
   </footer>
+  <dialog class="preview-dialog" aria-labelledby="preview-title">
+    <div class="preview-toolbar">
+      <h2 id="preview-title">Podgląd ekranu</h2>
+      <form method="dialog"><button class="preview-close" type="submit" autofocus>Zamknij <span aria-hidden="true">×</span></button></form>
+    </div>
+    <div class="preview-image" role="region" aria-label="Powiększony zrzut ekranu" tabindex="0"><img alt="" width="786" height="1704"></div>
+  </dialog>
 </body>
 </html>
 

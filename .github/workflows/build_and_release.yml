@@ -36,8 +36,10 @@ jobs:
         run: flutter test
 
       - name: Budowanie zoptymalizowanych plików Android APK (Split ABI - ~24 MB)
+        id: android
         run: |
           flutter build apk --release --split-per-abi
+          awk '$1 == "version:" { split($2, parts, /[+]/); print "version=" parts[1]; exit }' pubspec.yaml >> "$GITHUB_OUTPUT"
           ls -lh build/app/outputs/flutter-apk/
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/grubasek.apk
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/grubasek-arm64-v8a.apk
@@ -55,7 +57,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
           tag_name: latest
-          name: "Grubasek Najnowsza Wersja (Android APK)"
+          name: "Grubasek ${{ steps.android.outputs.version }} (Android APK)"
           body: |
             Automatyczna kompilacja najnowszej wersji aplikacji Grubasek (Split ABI).
             - `grubasek.apk`: Zoptymalizowana wersja na telefony z Androidem (ARM64, ~24 MB - 3x szybsze pobieranie!).
