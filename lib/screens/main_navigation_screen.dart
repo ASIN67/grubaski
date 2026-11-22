@@ -8,6 +8,7 @@ import 'add_product_screen.dart';
 import 'diary_screen.dart';
 import 'profile_screen.dart';
 import 'progress_screen.dart';
+import 'recipes_screen.dart';
 
 /// Keeps each primary tab mounted while switching between destinations.
 class MainNavigationScreen extends ConsumerStatefulWidget {
@@ -60,6 +61,7 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
         index: _currentIndex,
         children: [
           const DiaryScreen(),
+          const RecipesScreen(),
           AddProductScreen(initialMealType: MealType.breakfast),
           const ProgressScreen(),
           const ProfileScreen(),
@@ -81,6 +83,11 @@ class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
                 label: 'Dziennik',
                 icon: Icon(Icons.menu_book_outlined),
                 selectedIcon: Icon(Icons.menu_book_rounded),
+              ),
+              NavigationDestination(
+                label: 'Przepisy',
+                icon: Icon(Icons.restaurant_menu_outlined),
+                selectedIcon: Icon(Icons.restaurant_menu_rounded),
               ),
               NavigationDestination(
                 label: 'Dodaj / Skanuj',

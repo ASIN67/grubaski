@@ -255,4 +255,130 @@ class AiMealService {
     }
     return Exception(error.toString());
   }
+
+  /// Generates 3 realistic, delicious meal/snack suggestions to finish the user's remaining macros for the day.
+  Future<List<AiMealSuggestion>> suggestMealsForRemainingMacro({
+    required int remainingCalories,
+    required double remainingProtein,
+    required double remainingCarbs,
+    required double remainingFat,
+    String? dietaryPreferences,
+  }) async {
+    final key = apiKey;
+    if (key.isEmpty) {
+      throw Exception('Brak klucza Gemini API. Skonfiguruj klucz w ustawieniach.');
+    }
+
+    final prompt = '''
+Jesteś doświadczonym dietetykiem klinicznym i sportowym w aplikacji Grubasek.
+Użytkownikowi pozostało dzisiaj do zjedzenia:
+- Kalorie: $remainingCalories kcal
+- Białko: ${remainingProtein.toStringAsFixed(1)} g
+- Węglowodany: ${remainingCarbs.toStringAsFixed(1)} g
+- Tłuszcze: ${remainingFat.toStringAsFixed(1)} g
+${dietaryPreferences != null && dietaryPreferences.isNotEmpty ? 'Preferencje/wykluczenia: $dietaryPreferences' : ''}
+
+Zaproponuj DOKŁADNIE 3 konkretne, pyszne, realistyczne i proste w przygotowaniu propozycje posiłków lub przekąsek, które idealnie domykają ten bilans (lub mieszczą się w tych wartościach).
+Każda propozycja musi zawierać:
+- title: chwytliwa nazwa dania po polsku (np. "Kremowy twaróg z malinami i orzechami włoskimi")
+- description: krótki, 1-2 zdaniowy opis przygotowania
+- prepTimeMinutes: czas przygotowania w minutach (liczba całkowita)
+- calories: całkowita kaloryczność posiłku (liczba całkowita, bliska $remainingCalories)
+- protein: białko w gramach (bliskie ${remainingProtein.toStringAsFixed(1)})
+- carbs: węglowodany w gramach (bliskie ${remainingCarbs.toStringAsFixed(1)})
+- fat: tłuszcze w gramach (bliskie ${remainingFat.toStringAsFixed(1)})
+- ingredients: lista składników z gramaturą (np. ["150g chudego twarogu", "80g mrożonych malin", "15g orzechów włoskich"])
+
+Zwróć odpowiedź WYŁĄCZNIE jako poprawny JSON o schemacie:
+{
+  "suggestions": [
+    {
+      "title": "string",
+      "description": "string",
+      "prepTimeMinutes": 10,
+      "calories": 350,
+      "protein": 30.0,
+      "carbs": 25.0,
+      "fat": 8.0,
+      "ingredients": ["string"]
+    }
+  ]
+}
+''';
+
+    final requestBody = {
+      'contents': [
+        {
+          'parts': [
+            {'text': prompt}
+          ]
+        }
+      ],
+      'generationConfig': {
+        'responseMimeType': 'application/json',
+        'temperature': 0.4,
+      }
+    };
+
+    try {
+      final response = await _dio.post(
+        'https://generativelanguage.googleapis.com/v1beta/models/$_primaryModel:generateContent?key=$key',
+        data: requestBody,
+      );
+      return _parseSuggestionsResponse(response.data);
+    } catch (primaryError) {
+      debugPrint('Gemini primary model failed: $primaryError. Trying fallback $_fallbackModel...');
+      try {
+        final fallbackResponse = await _dio.post(
+          'https://generativelanguage.googleapis.com/v1beta/models/$_fallbackModel:generateContent?key=$key',
+          data: requestBody,
+        );
+        return _parseSuggestionsResponse(fallbackResponse.data);
+      } catch (fallbackError) {
+        throw _formatException(fallbackError);
+      }
+    }
+  }
+
+  List<AiMealSuggestion> _parseSuggestionsResponse(dynamic data) {
+    if (data is! Map<String, dynamic>) {
+      throw const FormatException('Nieprawidłowa odpowiedź z API.');
+    }
+    final candidates = data['candidates'] as List<dynamic>?;
+    if (candidates == null || candidates.isEmpty) {
+      throw const FormatException('Brak propozycji w odpowiedzi modelu Gemini.');
+    }
+    final firstCandidate = candidates.first as Map<String, dynamic>;
+    final content = firstCandidate['content'] as Map<String, dynamic>?;
+    final parts = content?['parts'] as List<dynamic>?;
+    if (parts == null || parts.isEmpty) {
+      throw const FormatException('Pusta treść odpowiedzi z Gemini.');
+    }
+    final rawText = (parts.first['text'] ?? '').toString().trim();
+    String cleanJson = rawText;
+    if (cleanJson.startsWith('```json')) {
+      cleanJson = cleanJson.substring(7);
+    } else if (cleanJson.startsWith('```')) {
+      cleanJson = cleanJson.substring(3);
+    }
+    if (cleanJson.endsWith('```')) {
+      cleanJson = cleanJson.substring(0, cleanJson.length - 3);
+    }
+    cleanJson = cleanJson.trim();
+
+    final decoded = jsonDecode(cleanJson);
+    List<dynamic> items = [];
+    if (decoded is Map<String, dynamic>) {
+      if (decoded['suggestions'] is List) {
+        items = decoded['suggestions'] as List;
+      }
+    } else if (decoded is List) {
+      items = decoded;
+    }
+
+    return items
+        .whereType<Map>()
+        .map((m) => AiMealSuggestion.fromJson(Map<String, dynamic>.from(m)))
+        .toList();
+  }
 }

@@ -4,6 +4,8 @@ import '../models/models.dart';
 import '../providers/diary_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../providers/water_provider.dart';
+import '../services/widget_update_service.dart';
+import '../utils/app_colors.dart';
 import '../utils/date_formatter.dart';
 import '../widgets/widgets.dart';
 import 'add_portion_sheet.dart';
@@ -148,6 +150,48 @@ class DiaryScreen extends ConsumerWidget {
     );
   }
 
+  Future<void> _copyYesterdayToToday(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Skopiować cały wczorajszy dzień?'),
+        content: const Text(
+          'Wszystkie posiłki z wczoraj zostaną dodane do dzisiejszego dnia.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Anuluj'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.primaryGreen),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Kopiuj'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final copies =
+          await ref.read(diaryProvider.notifier).copyYesterdayToCurrentDay();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.primaryGreenDark,
+            content: Text(
+              copies.isEmpty
+                  ? 'Wczorajszy dzień nie zawierał żadnych posiłków.'
+                  : 'Skopiowano ${copies.length} pozycji z wczoraj!',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final diaryState = ref.watch(diaryProvider);
@@ -164,6 +208,18 @@ class DiaryScreen extends ConsumerWidget {
     final double carbsGoal = userProfile?.carbsGoalGrams.toDouble() ?? 250.0;
     final double fatGoal = userProfile?.fatGoalGrams.toDouble() ?? 65.0;
     final int waterGoal = userProfile?.waterGoalMl ?? 2500;
+
+    // Keep Android Home Screen Widget in sync with today's totals
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final remCal = (caloriesGoal - diaryState.totalCalories).round();
+      WidgetUpdateService.instance.updateWidgetData(
+        remainingCalories: remCal,
+        proteinConsumed: diaryState.totalProtein,
+        carbsConsumed: diaryState.totalCarbs,
+        waterConsumedMl: waterLog.amountMl,
+        isOverCalories: remCal < 0,
+      );
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -253,41 +309,87 @@ class DiaryScreen extends ConsumerWidget {
 
             const SizedBox(height: 16),
 
-            // Section Header: Posiłki with AI Assistant Shortcut
+            // Section Header: Posiłki with Action Shortcuts
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Posiłki',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.3,
+                  const Expanded(
+                    child: Text(
+                      'Posiłki',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.3,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  TextButton.icon(
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    icon: const Icon(
-                      Icons.auto_awesome_rounded,
-                      size: 15,
-                      color: Color(0xFFEC4899),
-                    ),
-                    label: const Text(
-                      'AI Asystent',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFEC4899),
+                  Tooltip(
+                    message: 'Kopiuj cały wczorajszy dzień',
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _copyYesterdayToToday(context, ref),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.content_copy_rounded, size: 15),
+                            SizedBox(width: 3),
+                            Text(
+                              'Wczoraj',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    onPressed: () => AiMealEstimationScreen.open(
-                      context,
-                      initialDate: diaryState.selectedDate,
+                  ),
+                  const SizedBox(width: 6),
+                  Tooltip(
+                    message: 'AI: Zaproponuj posiłek na brakujące kalorie i makroskładniki',
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () {
+                        final remCal = (caloriesGoal - diaryState.totalCalories).round();
+                        final remP = (proteinGoal - diaryState.totalProtein).clamp(0.0, 300.0);
+                        final remC = (carbsGoal - diaryState.totalCarbs).clamp(0.0, 500.0);
+                        final remF = (fatGoal - diaryState.totalFat).clamp(0.0, 200.0);
+                        AiMacroFinisherSheet.show(
+                          context,
+                          remainingCalories: remCal > 0 ? remCal : 300,
+                          remainingProtein: remP,
+                          remainingCarbs: remC,
+                          remainingFat: remF,
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEC4899).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.auto_awesome_rounded,
+                              size: 13,
+                              color: Color(0xFFEC4899),
+                            ),
+                            SizedBox(width: 3),
+                            Text(
+                              'Makro AI',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFEC4899),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ],

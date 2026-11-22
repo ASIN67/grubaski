@@ -11,6 +11,9 @@ abstract class AppColors {
   static const primaryContainerLight = Color(0xFFEDE5FF);
   static const primaryContainerDark = Color(0xFF30224D);
 
+  static const primaryGreen = Color(0xFF10B981);
+  static const primaryGreenDark = Color(0xFF047857);
+
   static const secondary = Color(0xFFC1ACF1);
   static const tertiary = Color(0xFFB09BED);
 
@@ -21,12 +24,15 @@ abstract class AppColors {
   static const protein = Color(0xFF38BDF8);
   static const proteinLight = Color(0xFF60A5FA);
   static const proteinDark = Color(0xFF1D4ED8);
+  static const proteinBlue = protein;
   static const carbs = Color(0xFFFBBF24);
   static const carbsLight = Color(0xFFFCD34D);
   static const carbsDark = Color(0xFF92400E);
+  static const carbsAmber = carbs;
   static const fat = Color(0xFFFB7185);
   static const fatLight = Color(0xFFFDA4AF);
   static const fatDark = Color(0xFFBE123C);
+  static const fatRose = fat;
   static const water = Color(0xFF06B6D4);
   static const waterLight = Color(0xFF22D3EE);
   static const waterDark = Color(0xFF0E7490);

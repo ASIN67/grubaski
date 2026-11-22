@@ -12,7 +12,7 @@ import '../utils/date_formatter.dart';
 import '../widgets/widgets.dart';
 import 'body_measurements_view.dart';
 
-enum _ProgressView { weight, measurements, achievements }
+enum _ProgressView { weight, measurements, achievements, coach }
 
 /// Shows weight, calorie trends and body circumference history.
 class ProgressScreen extends ConsumerStatefulWidget {
@@ -202,6 +202,11 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
                   icon: Icon(Icons.emoji_events_outlined, size: 18),
                   label: Text('Odznaki'),
                 ),
+                ButtonSegment(
+                  value: _ProgressView.coach,
+                  icon: Icon(Icons.psychology_rounded, size: 18),
+                  label: Text('Coach'),
+                ),
               ],
               selected: {_view},
               onSelectionChanged: (selection) =>
@@ -213,11 +218,12 @@ class _ProgressScreenState extends ConsumerState<ProgressScreen> {
               _ProgressView.weight => _buildWeightView(context),
               _ProgressView.measurements => const BodyMeasurementsView(),
               _ProgressView.achievements => const AchievementsView(),
+              _ProgressView.coach => const AdaptiveCoachView(),
             },
           ),
         ],
       ),
-      floatingActionButton: _view == _ProgressView.achievements
+      floatingActionButton: (_view == _ProgressView.achievements || _view == _ProgressView.coach)
           ? null
           : FloatingActionButton.extended(
               onPressed: onAdd,

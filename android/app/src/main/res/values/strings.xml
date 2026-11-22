@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Grubasek</string>
+    <string name="widget_name">Grubasek Makro</string>
+    <string name="widget_description">Podgląd pozostałych kalorii, makro i wody na pulpicie.</string>
+</resources>

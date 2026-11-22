@@ -4,6 +4,7 @@ export 'body_measurements_provider.dart';
 export 'diary_provider.dart';
 export 'gamification_provider.dart';
 export 'product_search_provider.dart';
+export 'recipe_provider.dart';
 export 'theme_provider.dart';
 export 'user_profile_provider.dart';
 export 'water_provider.dart';

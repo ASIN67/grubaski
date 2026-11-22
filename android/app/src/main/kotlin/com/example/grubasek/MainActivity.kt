@@ -89,6 +89,14 @@ class MainActivity: FlutterActivity() {
                         result.error("SETTINGS_ERROR", e.localizedMessage, null)
                     }
                 }
+                "updateWidget" -> {
+                    try {
+                        GrubasekWidgetProvider.updateAllWidgets(this)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("WIDGET_ERROR", e.localizedMessage, null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

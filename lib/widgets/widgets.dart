@@ -1,4 +1,6 @@
 export 'achievements_view.dart';
+export 'adaptive_coach_view.dart';
+export 'ai_macro_finisher_sheet.dart';
 export 'calorie_summary_card.dart';
 export 'daily_date_picker_bar.dart';
 export 'macro_progress_ring.dart';

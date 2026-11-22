@@ -6,5 +6,6 @@ export 'food_product.dart';
 export 'gamification_models.dart';
 export 'meal_entry.dart';
 export 'meal_type.dart';
+export 'recipe_model.dart';
 export 'user_profile.dart';
 export 'weight_entry.dart';

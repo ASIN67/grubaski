@@ -175,6 +175,31 @@ class UserProfileNotifier extends StateNotifier<UserProfile?> {
     state = updatedProfile;
   }
 
+  /// Applies a recommended calorie target from the Adaptive Coach,
+  /// re-balancing macronutrient targets proportionally.
+  Future<void> applyRecommendedCalorieTarget(int newDailyCalories) async {
+    final current = state;
+    if (current == null) return;
+
+    final targetKcal = newDailyCalories.clamp(1200, 5000);
+    final proteinGrams = current.proteinGoalGrams.clamp(50, 350);
+    final fatGrams = ((targetKcal * 0.25) / 9.0).round().clamp(30, 160);
+    final carbsGrams =
+        (((targetKcal - (proteinGrams * 4) - (fatGrams * 9)) / 4.0))
+            .round()
+            .clamp(30, 800);
+
+    final updated = current.copyWith(
+      dailyCaloriesGoal: targetKcal,
+      proteinGoalGrams: proteinGrams,
+      carbsGoalGrams: carbsGrams,
+      fatGoalGrams: fatGrams,
+    );
+
+    await _repository.saveUserProfile(updated);
+    state = updated;
+  }
+
   /// Saves any direct modifications to the profile.
   Future<void> saveProfile(UserProfile profile) async {
     await _repository.saveUserProfile(profile);

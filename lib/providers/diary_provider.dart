@@ -350,6 +350,31 @@ class DiaryNotifier extends StateNotifier<DiaryState> {
     );
     return copies;
   }
+
+  /// Copies all entries from yesterday's [mealType] into the currently selected day's [mealType].
+  Future<List<MealEntry>> copyMealFromYesterday(MealType mealType) {
+    final yesterday = state.selectedDate.subtract(const Duration(days: 1));
+    return copyMeal(
+      sourceDate: yesterday,
+      sourceMealType: mealType,
+      targetDate: state.selectedDate,
+      targetMealType: mealType,
+    );
+  }
+
+  /// Copies all entries from yesterday into the currently selected day.
+  Future<List<MealEntry>> copyYesterdayToCurrentDay() async {
+    final yesterday = state.selectedDate.subtract(const Duration(days: 1));
+    final targetKey = state.dateKey;
+    final copies = await _repository.copyDayEntries(
+      sourceDateKey: DateFormatter.toDateKey(yesterday),
+      targetDateKey: targetKey,
+    );
+    if (copies.isNotEmpty) {
+      refresh();
+    }
+    return copies;
+  }
 }
 
 /// Global provider for [DiaryNotifier] state.
