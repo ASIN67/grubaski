@@ -1,6 +1,10 @@
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/app_release_info.dart';
 import 'supabase_service.dart';
@@ -29,26 +33,30 @@ class UpdateCheckResult {
 }
 
 /// Service managing remote version checks, Supabase `app_releases` queries,
-/// and external download/installation triggering.
+/// in-app direct APK downloads, and native Android installation triggering.
 class AppUpdateService {
   static final AppUpdateService instance = AppUpdateService();
   final SupabaseService _supabaseService;
+
+  static const MethodChannel _installerChannel =
+      MethodChannel('com.example.grubasek/apk_installer');
 
   AppUpdateService({SupabaseService? supabaseService})
       : _supabaseService = supabaseService ?? SupabaseService.instance;
 
   /// Retrieves local platform version details using [PackageInfo].
   ///
-  /// Falls back to safe defaults ('1.0.0', 1) in test environments or on unsupported platforms.
+  /// Falls back to safe defaults ('1.0.2', 3) in test environments or on unsupported platforms.
   Future<({String version, int buildNumber})> getCurrentVersionInfo() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
-      final version = packageInfo.version.isNotEmpty ? packageInfo.version : '1.0.1';
-      final buildNumber = int.tryParse(packageInfo.buildNumber) ?? 2;
+      final version =
+          packageInfo.version.isNotEmpty ? packageInfo.version : '1.0.2';
+      final buildNumber = int.tryParse(packageInfo.buildNumber) ?? 3;
       return (version: version, buildNumber: buildNumber);
     } catch (e) {
       debugPrint('AppUpdateService: PackageInfo.fromPlatform fallback ($e)');
-      return (version: '1.0.1', buildNumber: 2);
+      return (version: '1.0.2', buildNumber: 3);
     }
   }
 
@@ -82,8 +90,8 @@ class AppUpdateService {
     String? currentVersionOverride,
     int? currentBuildOverride,
   }) async {
-    String currentVersion = currentVersionOverride ?? '1.0.0';
-    int currentBuildNumber = currentBuildOverride ?? 1;
+    String currentVersion = currentVersionOverride ?? '1.0.2';
+    int currentBuildNumber = currentBuildOverride ?? 3;
 
     if (currentVersionOverride == null || currentBuildOverride == null) {
       final info = await getCurrentVersionInfo();
@@ -102,10 +110,14 @@ class AppUpdateService {
     }
 
     try {
-      // Query the latest release ordered by published_at or created_at descending
+      final currentPlatform = getCurrentPlatformName();
+
+      // Query the latest release matching current platform and marked active
       final response = await client
           .from('app_releases')
           .select()
+          .eq('platform', currentPlatform)
+          .eq('is_active', true)
           .order('published_at', ascending: false)
           .limit(1)
           .maybeSingle();
@@ -123,8 +135,11 @@ class AppUpdateService {
 
       // Determine if update is mandatory (flagged or current version below minSupportedVersion)
       bool isMandatory = release.isMandatory;
-      if (release.minSupportedVersion != null && release.minSupportedVersion!.isNotEmpty) {
-        if (AppReleaseInfo.compareSemver(release.minSupportedVersion!, currentVersion) > 0) {
+      if (release.minSupportedVersion != null &&
+          release.minSupportedVersion!.isNotEmpty) {
+        if (AppReleaseInfo.compareSemver(
+                release.minSupportedVersion!, currentVersion) >
+            0) {
           isMandatory = true;
         }
       }
@@ -147,8 +162,106 @@ class AppUpdateService {
     }
   }
 
-  /// Launches the download URL (e.g. GitHub release APK or https://grubasek.pages.dev/)
-  /// in the external system browser or package installer.
+  /// Downloads the APK file to local cache with live progress callback.
+  Future<String?> downloadApkWithProgress({
+    required String downloadUrl,
+    required String targetVersion,
+    required void Function(int received, int total, double progress) onProgress,
+    CancelToken? cancelToken,
+  }) async {
+    try {
+      final dio = Dio();
+      final tempDir = await getTemporaryDirectory();
+      final cleanVer =
+          targetVersion.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
+      final fileName = 'grubasek_update_$cleanVer.apk';
+      final savePath = '${tempDir.path}/$fileName';
+
+      // Delete existing partial/old file if present
+      final file = File(savePath);
+      if (await file.exists()) {
+        try {
+          await file.delete();
+        } catch (_) {}
+      }
+
+      await dio.download(
+        downloadUrl,
+        savePath,
+        onReceiveProgress: (received, total) {
+          final progress = total > 0 ? (received / total) : 0.0;
+          onProgress(received, total, progress);
+        },
+        cancelToken: cancelToken,
+        options: Options(
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
+        ),
+      );
+
+      if (await file.exists() && await file.length() > 0) {
+        return savePath;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('AppUpdateService: downloadApkWithProgress error ($e)');
+      return null;
+    }
+  }
+
+  /// Triggers Android's native package installer for the given [apkFilePath].
+  Future<({bool success, String? error, bool permissionRequired})> installApk(
+      String apkFilePath) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+      return (
+        success: false,
+        error: 'System nie obsługuje bezpośredniej instalacji pakietów APK.',
+        permissionRequired: false
+      );
+    }
+
+    try {
+      final bool? result = await _installerChannel.invokeMethod<bool>(
+        'installApk',
+        {'filePath': apkFilePath},
+      );
+      return (
+        success: result ?? false,
+        error: null,
+        permissionRequired: false
+      );
+    } on PlatformException catch (e) {
+      debugPrint('AppUpdateService: installApk PlatformException ($e)');
+      final isPermission = e.code == 'PERMISSION_REQUIRED';
+      return (
+        success: false,
+        error: e.message,
+        permissionRequired: isPermission
+      );
+    } catch (e) {
+      debugPrint('AppUpdateService: installApk error ($e)');
+      return (
+        success: false,
+        error: e.toString(),
+        permissionRequired: false
+      );
+    }
+  }
+
+  /// Opens the system settings screen to allow installing unknown apps.
+  Future<void> openInstallSettings() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    try {
+      await _installerChannel.invokeMethod('openInstallSettings');
+    } catch (e) {
+      debugPrint('AppUpdateService: openInstallSettings error ($e)');
+    }
+  }
+
+  /// Fallback: Launches the download URL in the external system browser.
   Future<bool> launchDownload(String downloadUrl) async {
     final cleanUrl = downloadUrl.trim();
     if (cleanUrl.isEmpty) {

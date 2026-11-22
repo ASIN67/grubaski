@@ -33,8 +33,8 @@ void main() {
       expect(find.text('v1.2.0'), findsOneWidget);
       expect(find.text('Co nowego w tej aktualizacji:'), findsOneWidget);
       expect(find.textContaining('Dodano bazę 900+ produktów'), findsOneWidget);
-      expect(find.text('Pobierz i zaktualizuj aplikację'), findsOneWidget);
-      expect(find.text('Przypomnij mi później'), findsOneWidget);
+      expect(find.text('Zaktualizuj teraz (w aplikacji)'), findsOneWidget);
+      expect(find.text('Przypomnij później'), findsOneWidget);
     });
 
     testWidgets('mandatory update hides dismiss button', (tester) async {
@@ -58,8 +58,8 @@ void main() {
         ),
       );
 
-      expect(find.text('Przypomnij mi później'), findsNothing);
-      expect(find.text('Pobierz i zaktualizuj aplikację'), findsOneWidget);
+      expect(find.text('Przypomnij później'), findsNothing);
+      expect(find.text('Zaktualizuj teraz (w aplikacji)'), findsOneWidget);
     });
   });
 }

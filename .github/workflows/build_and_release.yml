@@ -35,11 +35,12 @@ jobs:
       - name: Uruchomienie testów jednostkowych
         run: flutter test
 
-      - name: Budowanie pliku Android APK (Release)
-        run: flutter build apk --release
-
-      - name: Zmiana nazwy pliku na grubasek.apk
-        run: cp build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/grubasek.apk
+      - name: Budowanie zoptymalizowanych plików Android APK (Split ABI - ~24 MB)
+        run: |
+          flutter build apk --release --split-per-abi
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/grubasek.apk
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk build/app/outputs/flutter-apk/grubasek-arm64-v8a.apk
+          cp build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk build/app/outputs/flutter-apk/grubasek-armeabi-v7a.apk
 
       - name: Zapisanie pliku instalacyjnego APK jako Artefakt
         uses: actions/upload-artifact@v4
@@ -55,9 +56,13 @@ jobs:
           tag_name: latest
           name: "Grubasek Najnowsza Wersja (Android APK)"
           body: |
-            Automatyczna kompilacja najnowszej wersji aplikacji Grubasek.
-            Pobierz plik `grubasek.apk` i zainstaluj na telefonie z systemem Android.
-          files: build/app/outputs/flutter-apk/grubasek.apk
+            Automatyczna kompilacja najnowszej wersji aplikacji Grubasek (Split ABI).
+            - `grubasek.apk`: Zoptymalizowana wersja na telefony z Androidem (ARM64, ~24 MB - 3x szybsze pobieranie!).
+            - `grubasek-armeabi-v7a.apk`: Wersja na starsze procesory 32-bitowe (~22 MB).
+          files: |
+            build/app/outputs/flutter-apk/grubasek.apk
+            build/app/outputs/flutter-apk/grubasek-arm64-v8a.apk
+            build/app/outputs/flutter-apk/grubasek-armeabi-v7a.apk
           prerelease: false
           make_latest: true
         env:

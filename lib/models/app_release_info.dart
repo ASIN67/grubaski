@@ -87,8 +87,12 @@ class AppReleaseInfo {
     if (cmp > 0) return true;
     if (cmp < 0) return false;
 
-    // Versions are equal, compare build numbers if available
-    if (currentBuildNumber != null && buildNumber > currentBuildNumber) {
+    // Versions are identical (e.g. 1.0.2 == 1.0.2).
+    // Only return true if both build numbers are valid (> 0) and remote build is strictly greater.
+    if (currentBuildNumber != null &&
+        currentBuildNumber > 0 &&
+        buildNumber > 0 &&
+        buildNumber > currentBuildNumber) {
       return true;
     }
     return false;
@@ -97,8 +101,19 @@ class AppReleaseInfo {
   /// Compares two Semantic Versioning strings (e.g., '1.1.0' vs '1.0.9').
   /// Returns 1 if v1 > v2, -1 if v1 < v2, and 0 if v1 == v2.
   static int compareSemver(String v1, String v2) {
-    final clean1 = v1.trim().replaceFirst(RegExp(r'^[vV]'), '');
-    final clean2 = v2.trim().replaceFirst(RegExp(r'^[vV]'), '');
+    String clean(String v) {
+      var s = v.trim().replaceFirst(RegExp(r'^[vV]'), '');
+      if (s.contains('+')) {
+        s = s.substring(0, s.indexOf('+')).trim();
+      }
+      if (s.contains('-')) {
+        s = s.substring(0, s.indexOf('-')).trim();
+      }
+      return s;
+    }
+
+    final clean1 = clean(v1);
+    final clean2 = clean(v2);
 
     final parts1 = clean1.split('.').map((e) => int.tryParse(e) ?? 0).toList();
     final parts2 = clean2.split('.').map((e) => int.tryParse(e) ?? 0).toList();
