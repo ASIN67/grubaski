@@ -46,12 +46,12 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 
-	<!-- Camera usage description for mobile_scanner (barcode scanning) -->
+	<!-- Camera usage description for mobile_scanner and AI meal estimation -->
 	<key>NSCameraUsageDescription</key>
-	<string>Aplikacja Grubasek potrzebuje dostępu do aparatu, aby skanować kody kreskowe produktów spożywczych.</string>
+	<string>Aplikacja Grubasek potrzebuje dostępu do aparatu, aby skanować kody kreskowe oraz robić zdjęcia posiłków do analizy kalorii i makro przez AI.</string>
 
-	<!-- Photo library access if needed for saving exports -->
+	<!-- Photo library access for meal photos and saving exports -->
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Aplikacja wymaga dostępu do pamięci, aby zapisywać i eksportować raporty z dziennika.</string>
+	<string>Aplikacja wymaga dostępu do galerii zdjęć, aby wybrać zdjęcie posiłku do analizy AI oraz eksportować raporty z dziennika.</string>
 </dict>
 </plist>

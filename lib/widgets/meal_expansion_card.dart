@@ -5,7 +5,7 @@ import '../models/meal_entry.dart';
 import '../models/meal_type.dart';
 import '../utils/app_colors.dart';
 
-enum MealCardAction { copyFromYesterday, copyToMeal, quickAdd }
+enum MealCardAction { copyFromYesterday, copyToMeal, quickAdd, aiEstimate }
 
 /// A collapsible card with meal totals, entry actions, and product shortcuts.
 class MealExpansionCard extends StatefulWidget {
@@ -201,6 +201,16 @@ class _MealExpansionCardState extends State<MealExpansionCard> {
       icon: const Icon(Icons.more_horiz_rounded),
       onSelected: widget.onAction,
       itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: MealCardAction.aiEstimate,
+          child: Row(
+            children: [
+              Icon(Icons.auto_awesome_rounded, size: 16, color: Color(0xFFEC4899)),
+              SizedBox(width: 8),
+              Text('✨ Oszacuj przez AI'),
+            ],
+          ),
+        ),
         const PopupMenuItem(
           value: MealCardAction.quickAdd,
           child: Text('+ Szybki wpis'),

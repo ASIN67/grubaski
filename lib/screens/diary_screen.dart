@@ -9,6 +9,7 @@ import '../utils/date_formatter.dart';
 import '../widgets/widgets.dart';
 import 'add_portion_sheet.dart';
 import 'add_product_screen.dart';
+import 'ai_meal_estimation_screen.dart';
 import 'barcode_scanner_screen.dart';
 import 'quick_add_sheet.dart';
 
@@ -74,6 +75,12 @@ class DiaryScreen extends ConsumerWidget {
     required MealType mealType,
   }) async {
     switch (action) {
+      case MealCardAction.aiEstimate:
+        await AiMealEstimationScreen.open(
+          context,
+          initialDate: date,
+          initialMealType: mealType,
+        );
       case MealCardAction.quickAdd:
         await QuickAddSheet.show(
           context,
@@ -161,29 +168,19 @@ class DiaryScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.restaurant_menu_rounded,
-                color: Colors.white,
-                size: 18,
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              'Dziennik',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
-            ),
-          ],
+        title: const Text(
+          'Dziennik',
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFFEC4899)),
+            tooltip: 'Oszacuj Makro AI',
+            onPressed: () => AiMealEstimationScreen.open(
+              context,
+              initialDate: diaryState.selectedDate,
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.emoji_events_outlined),
             tooltip: 'Passa i Osiągnięcia',
@@ -257,16 +254,44 @@ class DiaryScreen extends ConsumerWidget {
 
             const SizedBox(height: 16),
 
-            // Section Header: Posiłki
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
-              child: Text(
-                'Posiłki',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: -0.3,
-                ),
+            // Section Header: Posiłki with AI Assistant Shortcut
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Posiłki',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: const Icon(
+                      Icons.auto_awesome_rounded,
+                      size: 15,
+                      color: Color(0xFFEC4899),
+                    ),
+                    label: const Text(
+                      'AI Asystent',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFEC4899),
+                      ),
+                    ),
+                    onPressed: () => AiMealEstimationScreen.open(
+                      context,
+                      initialDate: diaryState.selectedDate,
+                    ),
+                  ),
+                ],
               ),
             ),
 

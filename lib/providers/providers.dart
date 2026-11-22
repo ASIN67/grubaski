@@ -1,3 +1,4 @@
+export 'ai_meal_provider.dart';
 export 'auth_provider.dart';
 export 'body_measurements_provider.dart';
 export 'diary_provider.dart';
