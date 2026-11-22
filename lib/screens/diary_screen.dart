@@ -4,7 +4,6 @@ import '../models/models.dart';
 import '../providers/diary_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../providers/water_provider.dart';
-import '../utils/app_colors.dart';
 import '../utils/date_formatter.dart';
 import '../widgets/widgets.dart';
 import 'add_portion_sheet.dart';
