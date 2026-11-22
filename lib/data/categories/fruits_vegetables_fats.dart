@@ -75,7 +75,7 @@ const List<FoodProduct> fruitsVegetablesFatsProducts = [
   ),
   FoodProduct(
     id: 'seed-warz-ogorki-konserwowe',
-    barcode: '5900783002017',
+    barcode: '5900497003013',
     name: 'Ogórki konserwowe korniszone',
     brand: 'Krakus',
     caloriesPer100g: 35.0,

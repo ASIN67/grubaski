@@ -3,9 +3,9 @@ import 'package:grubasek/data/default_food_database.dart';
 
 void main() {
   group('DefaultFoodDatabase Tests', () {
-    test('contains over 1700 predefined Polish food products', () {
-      expect(defaultFoodProducts.length, greaterThanOrEqualTo(1700));
-      expect(defaultFoodProducts.length, equals(1755));
+    test('contains over 2800 predefined Polish food products', () {
+      expect(defaultFoodProducts.length, greaterThanOrEqualTo(2800));
+      expect(defaultFoodProducts.length, equals(2887));
     });
 
     test('all product IDs are unique and non-empty', () {

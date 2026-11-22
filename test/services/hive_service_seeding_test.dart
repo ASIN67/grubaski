@@ -20,15 +20,15 @@ void main() {
     }
   });
 
-  test('HiveService.init() seeds default food products (v3 with 1700+ items) and sets flags', () async {
+  test('HiveService.init() seeds default food products (v4 with 2800+ items) and sets flags', () async {
     await hiveService.init(customPath: tempDir.path);
 
     expect(hiveService.foodProductsBox.length, equals(defaultFoodProducts.length));
-    expect(hiveService.foodProductsBox.length, greaterThanOrEqualTo(1700));
+    expect(hiveService.foodProductsBox.length, greaterThanOrEqualTo(2800));
 
-    final isSeededV3 = hiveService.settingsBox.get(HiveService.foodDatabaseSeededKey);
+    final isSeededV4 = hiveService.settingsBox.get(HiveService.foodDatabaseSeededKey);
     final version = hiveService.settingsBox.get(HiveService.foodDatabaseVersionKey);
-    expect(isSeededV3, isTrue);
+    expect(isSeededV4, isTrue);
     expect(version, equals(HiveService.currentFoodDatabaseVersion));
 
     // Verify sample product from dairy
@@ -90,7 +90,7 @@ void main() {
 
     // Total products should be defaultFoodProducts + 1 (custom product)
     expect(productBox.length, equals(defaultFoodProducts.length + 1));
-    expect(productBox.length, greaterThanOrEqualTo(1700));
+    expect(productBox.length, greaterThanOrEqualTo(2800));
 
     // Custom product is completely untouched
     final retrievedCustom = productBox.get(customUserProduct.id);

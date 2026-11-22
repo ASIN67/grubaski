@@ -25,6 +25,26 @@ class ProductRepository {
         _supabaseService = supabaseService ?? SupabaseService.instance;
 
   Box<FoodProduct> get _box => _hiveService.foodProductsBox;
+  List<_IndexedProduct>? _cachedIndex;
+
+  void _invalidateIndex() {
+    _cachedIndex = null;
+  }
+
+  List<_IndexedProduct> _getIndex() {
+    final cached = _cachedIndex;
+    if (cached != null && cached.length == _box.length) {
+      return cached;
+    }
+    final index = _box.values.map((p) => _IndexedProduct(
+      product: p,
+      nameNorm: normalizeForSearch(p.name),
+      brandNorm: p.brand != null ? normalizeForSearch(p.brand!) : null,
+      barcode: p.barcode?.trim() ?? '',
+    )).toList(growable: false);
+    _cachedIndex = index;
+    return index;
+  }
 
   /// Returns all food products saved in local storage.
   List<FoodProduct> getAllLocalProducts() {
@@ -41,9 +61,10 @@ class ProductRepository {
     final cleanBarcode = barcode.trim();
     if (cleanBarcode.isEmpty) return null;
 
-    for (final product in _box.values) {
-      if (product.barcode != null && product.barcode!.trim() == cleanBarcode) {
-        return product;
+    final index = _getIndex();
+    for (final item in index) {
+      if (item.barcode == cleanBarcode) {
+        return item.product;
       }
     }
     return null;
@@ -97,6 +118,7 @@ class ProductRepository {
   /// Persists a food product in local storage using its [FoodProduct.id] as key.
   Future<void> saveProduct(FoodProduct product) async {
     await _box.put(product.id, product);
+    _invalidateIndex();
   }
 
   /// Persists multiple food products in a single batch operation.
@@ -104,6 +126,7 @@ class ProductRepository {
     if (products.isEmpty) return;
     final map = {for (final p in products) p.id: p};
     await _box.putAll(map);
+    _invalidateIndex();
   }
 
   /// Resolves remote results to cached products, preserving their favorite state.
@@ -131,7 +154,10 @@ class ProductRepository {
       }
       results[resolved.id] = resolved;
     }
-    if (newProducts.isNotEmpty) await _box.putAll(newProducts);
+    if (newProducts.isNotEmpty) {
+      await _box.putAll(newProducts);
+      _invalidateIndex();
+    }
     return results.values.toList();
   }
 
@@ -188,6 +214,7 @@ class ProductRepository {
   /// Deletes a food product by its [id] from local storage.
   Future<void> deleteProduct(String id) async {
     await _box.delete(id);
+    _invalidateIndex();
   }
 
   /// Creates and saves a new custom food product authored by the user.
@@ -280,17 +307,21 @@ class ProductRepository {
         .toList(growable: false);
 
     final scored = <_ScoredProduct>[];
+    final index = _getIndex();
 
-    for (final product in _box.values) {
+    for (final item in index) {
       final score = _calculateSearchScore(
-        product: product,
+        product: item.product,
+        nameNorm: item.nameNorm,
+        brandNorm: item.brandNorm,
+        barcode: item.barcode,
         queryNorm: queryNorm,
         queryTokens: queryTokens,
         cleanBarcodeQuery: cleanQuery,
       );
 
       if (score > 0) {
-        scored.add(_ScoredProduct(product, score));
+        scored.add(_ScoredProduct(item.product, score));
       }
     }
 
@@ -300,14 +331,13 @@ class ProductRepository {
 
   int _calculateSearchScore({
     required FoodProduct product,
+    required String nameNorm,
+    required String? brandNorm,
+    required String barcode,
     required String queryNorm,
     required List<String> queryTokens,
     required String cleanBarcodeQuery,
   }) {
-    final nameNorm = normalizeForSearch(product.name);
-    final brandNorm =
-        product.brand != null ? normalizeForSearch(product.brand!) : null;
-    final barcode = product.barcode?.trim() ?? '';
 
     var baseScore = 0;
 
@@ -521,4 +551,18 @@ class _ScoredProduct implements Comparable<_ScoredProduct> {
     // 4. Alphabetical tie-breaker
     return product.name.compareTo(other.product.name);
   }
+}
+
+class _IndexedProduct {
+  final FoodProduct product;
+  final String nameNorm;
+  final String? brandNorm;
+  final String barcode;
+
+  const _IndexedProduct({
+    required this.product,
+    required this.nameNorm,
+    required this.brandNorm,
+    required this.barcode,
+  });
 }

@@ -406,7 +406,7 @@ const List<FoodProduct> readyMealsAndFastFood = [
   // ===========================================================================
   FoodProduct(
     id: 'seed-dania-zurek-staropolski-krakus',
-    barcode: '5900508001019',
+    barcode: '5900497022045',
     name: 'Żurek staropolski na zakwasie',
     brand: 'Krakus',
     caloriesPer100g: 42.0,
@@ -419,7 +419,7 @@ const List<FoodProduct> readyMealsAndFastFood = [
   ),
   FoodProduct(
     id: 'seed-dania-barszcz-czerwony-krakus',
-    barcode: '5900508001026',
+    barcode: '5900497022014',
     name: 'Barszcz czerwony czysty',
     brand: 'Krakus',
     caloriesPer100g: 34.0,
