@@ -335,6 +335,115 @@ void main() {
     });
   });
 
+  group('ProductRepository.searchLocalProducts - Polish Inflections, Stems & Brand Aliases', () {
+    test('finds Chikker with exact query, "chikker z maka" and "chikker maka"', () async {
+      await repository.saveProducts([
+        const FoodProduct(
+          id: 'chikker_mcd',
+          name: 'Chikker',
+          brand: 'McDonald\'s',
+          caloriesPer100g: 272,
+          proteinPer100g: 9.6,
+          carbsPer100g: 30,
+          fatPer100g: 12,
+        ),
+        const FoodProduct(
+          id: 'mcchicken_mcd',
+          name: 'McChicken',
+          brand: 'McDonald\'s',
+          caloriesPer100g: 229,
+          proteinPer100g: 10.5,
+          carbsPer100g: 23,
+          fatPer100g: 10.5,
+        ),
+        const FoodProduct(
+          id: 'kurczak_kfc',
+          name: 'Kurczak Strips',
+          brand: 'KFC',
+          caloriesPer100g: 240,
+          proteinPer100g: 18,
+          carbsPer100g: 15,
+          fatPer100g: 12,
+        ),
+      ]);
+
+      // Query "chikker"
+      final r1 = repository.searchLocalProducts('chikker');
+      expect(r1.first.id, equals('chikker_mcd'));
+
+      // Query "chikker z maka"
+      final r2 = repository.searchLocalProducts('chikker z maka');
+      expect(r2.first.id, equals('chikker_mcd'));
+
+      // Query "chikker maka"
+      final r3 = repository.searchLocalProducts('chikker maka');
+      expect(r3.first.id, equals('chikker_mcd'));
+
+      // Query "chikker mcdonald"
+      final r4 = repository.searchLocalProducts('chikker mcdonald');
+      expect(r4.first.id, equals('chikker_mcd'));
+    });
+
+    test('matches Polish grammatical inflections (jogurt truskawka -> Jogurt truskawkowy)', () async {
+      await repository.saveProducts([
+        const FoodProduct(
+          id: 'jogurt_truskawkowy',
+          name: 'Jogurt truskawkowy',
+          brand: 'Pilos',
+          caloriesPer100g: 78,
+          proteinPer100g: 4.2,
+          carbsPer100g: 12,
+          fatPer100g: 1.5,
+        ),
+        const FoodProduct(
+          id: 'jogurt_naturalny',
+          name: 'Jogurt naturalny',
+          brand: 'Pilos',
+          caloriesPer100g: 60,
+          proteinPer100g: 4.5,
+          carbsPer100g: 5.5,
+          fatPer100g: 2.0,
+        ),
+      ]);
+
+      // "jogurt truskawka" should match "Jogurt truskawkowy"
+      final results = repository.searchLocalProducts('jogurt truskawka');
+      expect(results, isNotEmpty);
+      expect(results.first.id, equals('jogurt_truskawkowy'));
+    });
+
+    test('matches brand aliases (biedra -> Biedronka, lidla -> Lidl, piatnicy -> Piątnica)', () async {
+      await repository.saveProducts([
+        const FoodProduct(
+          id: 'twarog_piatnica',
+          name: 'Twaróg wiejski',
+          brand: 'Piątnica',
+          caloriesPer100g: 86,
+          proteinPer100g: 18,
+          carbsPer100g: 3.5,
+          fatPer100g: 0.5,
+        ),
+        const FoodProduct(
+          id: 'kajzerka_biedronka',
+          name: 'Kajzerka pszenna',
+          brand: 'Biedronka',
+          caloriesPer100g: 280,
+          proteinPer100g: 8,
+          carbsPer100g: 55,
+          fatPer100g: 2,
+        ),
+      ]);
+
+      final r1 = repository.searchLocalProducts('twarog z piatnicy');
+      expect(r1, isNotEmpty);
+      expect(r1.first.id, equals('twarog_piatnica'));
+
+      final r2 = repository.searchLocalProducts('kajzerka z biedry');
+      expect(r2, isNotEmpty);
+      expect(r2.first.id, equals('kajzerka_biedronka'));
+    });
+  });
+
   group('ProductRepository.searchLocalProducts - Performance benchmark', () {
     test('searches 600+ products in under 5 milliseconds per query', () async {
       final largeCatalog = <String, FoodProduct>{};

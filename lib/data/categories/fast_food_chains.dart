@@ -1,6 +1,6 @@
 // GENERATED PREDEFINED POLISH FAST FOOD CHAINS (MCDONALD'S & KFC)
 // Official comprehensive menu with exact macro and serving portions.
-// Total items: 141
+// Total items: 143
 
 import '../../models/food_product.dart';
 
@@ -135,6 +135,32 @@ const List<FoodProduct> fastFoodChainsProducts = [
     fiberPer100g: 1.5,
     servingSizeGrams: 130.0,
     servingName: '1 burger (130g)',
+  ),
+  FoodProduct(
+    id: 'seed-ff-mcd-chikker',
+    name: 'Chikker',
+    brand: 'McDonald\'s',
+    barcode: '5909982001423',
+    caloriesPer100g: 272.0,
+    proteinPer100g: 9.6,
+    carbsPer100g: 30.0,
+    fatPer100g: 12.0,
+    fiberPer100g: 1.8,
+    servingSizeGrams: 150.0,
+    servingName: '1 burger (150g)',
+  ),
+  FoodProduct(
+    id: 'seed-ff-mcd-red-chikker',
+    name: 'Red Chikker',
+    brand: 'McDonald\'s',
+    barcode: '5909982001430',
+    caloriesPer100g: 225.0,
+    proteinPer100g: 9.4,
+    carbsPer100g: 32.0,
+    fatPer100g: 6.1,
+    fiberPer100g: 1.7,
+    servingSizeGrams: 152.0,
+    servingName: '1 burger (152g)',
   ),
   FoodProduct(
     id: 'seed-ff-mcd-filet-o-fish',

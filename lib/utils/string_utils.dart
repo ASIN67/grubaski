@@ -241,6 +241,150 @@ String normalizeForSearch(String text) {
   return buffer.toString();
 }
 
+/// Set of common Polish prepositions, conjunctions, and stop words
+/// that are filtered out in multi-word product searches.
+const Set<String> polishStopwords = {
+  'z', 'ze', 'w', 'we', 'i', 'oraz', 'do', 'na', 'o', 'od', 'dla', 'a',
+};
+
+/// Common Polish brand aliases, colloquial abbreviations, and inflections.
+const Map<String, List<String>> polishBrandAliases = {
+  'mcdonald': ['mak', 'maka', 'maku', 'mcdonald', 'mcdonalds', 'mc'],
+  'kfc': ['kfc', 'kentucky'],
+  'biedronka': ['biedronka', 'biedronki', 'biedronce', 'biedra', 'biedry', 'biedrze', 'kraina wedlin'],
+  'lidl': ['lidl', 'lidla', 'lidlu', 'pilos'],
+  'piatnica': ['piatnica', 'piatnicy', 'piatnice'],
+  'zabka': ['zabka', 'zabki', 'zabce'],
+  'kfd': ['kfd'],
+  'sfd': ['sfd'],
+  'mlekovita': ['mlekovita', 'mlekovity', 'mlekovicie'],
+  'lowicz': ['lowicz', 'lowicza'],
+  'danone': ['danone', 'danona'],
+  'zywiec': ['zywiec', 'zywca'],
+  'pepsi': ['pepsi'],
+  'coca-cola': ['cola', 'coca', 'cocacola'],
+};
+
+/// Checks if a normalized brand string matches a query token or stem directly or through aliases.
+bool matchBrandAlias(String brandNorm, String queryToken, String queryStem) {
+  final cleanBrand = brandNorm.replaceAll(RegExp(r'''['"`\-/,().:;%!?]'''), '');
+  if (cleanBrand == queryToken || cleanBrand == queryStem) return true;
+  if (cleanBrand.startsWith(queryToken) || cleanBrand.startsWith(queryStem)) return true;
+
+  for (final entry in polishBrandAliases.entries) {
+    final key = entry.key;
+    if (cleanBrand.contains(key) || brandNorm.contains(key)) {
+      if (entry.value.contains(queryToken) ||
+          entry.value.contains(queryStem) ||
+          entry.value.any((v) => queryToken.startsWith(v) || queryStem.startsWith(v))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/// Extracts a simplified root stem for a Polish normalized word (lowercase, no diacritics).
+/// Trims common grammatical inflection endings (declensions, plurals, adjectives)
+/// so that e.g. "truskawka", "truskawkowy", "truskawkowe" all yield "truskawk",
+/// "kurczaka", "kurczakiem", "kurczak" all yield "kurczak",
+/// and "maka", "maku", "mak" all yield "mak".
+String polishStem(String word) {
+  if (word.length < 4) return word;
+
+  // 1. Long adjective/inflection suffixes (length >= 7)
+  if (word.length >= 7) {
+    if (word.endsWith('owego') ||
+        word.endsWith('owych') ||
+        word.endsWith('owym') ||
+        word.endsWith('owej')) {
+      return word.substring(0, word.length - 5);
+    }
+    if (word.endsWith('kiem')) {
+      return '${word.substring(0, word.length - 4)}k';
+    }
+    if (word.endsWith('nych') ||
+        word.endsWith('nymi') ||
+        word.endsWith('nego') ||
+        word.endsWith('nemu')) {
+      return word.substring(0, word.length - 4);
+    }
+  }
+
+  // 2. Medium suffixes (length >= 6)
+  if (word.length >= 6) {
+    if (word.endsWith('owy') ||
+        word.endsWith('owa') ||
+        word.endsWith('owe') ||
+        word.endsWith('ami') ||
+        word.endsWith('ach')) {
+      return word.substring(0, word.length - 3);
+    }
+    if (word.endsWith('skie') ||
+        word.endsWith('skiej') ||
+        word.endsWith('skim')) {
+      return word.substring(0, word.length - 4);
+    }
+    if (word.endsWith('ska') || word.endsWith('ski')) {
+      return word.substring(0, word.length - 3);
+    }
+  }
+
+  // 3. Short suffixes (length >= 5)
+  if (word.length >= 5) {
+    if (word.endsWith('iem') ||
+        word.endsWith('ych') ||
+        word.endsWith('ich') ||
+        word.endsWith('ego') ||
+        word.endsWith('emu')) {
+      return word.substring(0, word.length - 3);
+    }
+    if (word.endsWith('ow') ||
+        word.endsWith('em') ||
+        word.endsWith('am') ||
+        word.endsWith('om') ||
+        word.endsWith('ie') ||
+        word.endsWith('ej')) {
+      return word.substring(0, word.length - 2);
+    }
+  }
+
+  // 4. Single-letter inflection endings (length >= 4)
+  if (word.length >= 4) {
+    final last = word.codeUnitAt(word.length - 1);
+    // a, e, y, u, i, o
+    if (last == 0x61 ||
+        last == 0x65 ||
+        last == 0x79 ||
+        last == 0x75 ||
+        last == 0x69 ||
+        last == 0x6F) {
+      return word.substring(0, word.length - 1);
+    }
+  }
+
+  return word;
+}
+
+/// Splits text into normalized, diacritics-stripped tokens for search.
+/// Replaces punctuation with spaces and filters out stopwords when multiple words exist.
+List<String> tokenizeForSearch(String text) {
+  if (text.isEmpty) return const [];
+  final norm = normalizeForSearch(text);
+  final clean = norm.replaceAll(RegExp(r'''['"`\-/,().:;%!?_#*+=\[\]]'''), ' ');
+  final rawTokens = clean
+      .split(' ')
+      .map((t) => t.trim())
+      .where((t) => t.isNotEmpty)
+      .toList(growable: false);
+
+  if (rawTokens.length > 1) {
+    final filtered = rawTokens.where((t) => !polishStopwords.contains(t)).toList(growable: false);
+    if (filtered.isNotEmpty) return filtered;
+  }
+  return rawTokens;
+}
+
 /// Extension providing easy string search normalization helpers.
 extension StringSearchUtils on String {
   /// Returns a copy of this string with Polish diacritics replaced by Latin letters.
@@ -248,4 +392,7 @@ extension StringSearchUtils on String {
 
   /// Returns this string normalized for search: lowercase, trimmed, no diacritics.
   String toSearchNormalized() => normalizeForSearch(this);
+
+  /// Returns the Polish grammatical stem of this word.
+  String toPolishStem() => polishStem(normalizeForSearch(this));
 }

@@ -39,12 +39,20 @@ class ProductRepository {
     }
     final index = _box.values
         .where((p) => !p.isRecipe && !p.id.startsWith('recipe_'))
-        .map((p) => _IndexedProduct(
-          product: p,
-          nameNorm: normalizeForSearch(p.name),
-          brandNorm: p.brand != null ? normalizeForSearch(p.brand!) : null,
-          barcode: p.barcode?.trim() ?? '',
-        ))
+        .map((p) {
+          final nTokens = tokenizeForSearch(p.name);
+          final bTokens = p.brand != null ? tokenizeForSearch(p.brand!) : const <String>[];
+          return _IndexedProduct(
+            product: p,
+            nameNorm: normalizeForSearch(p.name),
+            brandNorm: p.brand != null ? normalizeForSearch(p.brand!) : null,
+            barcode: p.barcode?.trim() ?? '',
+            nameTokens: nTokens,
+            nameStems: nTokens.map(polishStem).toList(growable: false),
+            brandTokens: bTokens,
+            brandStems: bTokens.map(polishStem).toList(growable: false),
+          );
+        })
         .toList(growable: false);
     _cachedIndex = index;
     return index;
@@ -349,10 +357,8 @@ class ProductRepository {
     if (cleanQuery.isEmpty) return getAllLocalProducts();
 
     final queryNorm = normalizeForSearch(cleanQuery);
-    final queryTokens = queryNorm
-        .split(' ')
-        .where((t) => t.isNotEmpty)
-        .toList(growable: false);
+    final queryTokens = tokenizeForSearch(cleanQuery);
+    final queryStems = queryTokens.map(polishStem).toList(growable: false);
 
     final scored = <_ScoredProduct>[];
     final index = _getIndex();
@@ -363,8 +369,13 @@ class ProductRepository {
         nameNorm: item.nameNorm,
         brandNorm: item.brandNorm,
         barcode: item.barcode,
+        nameTokens: item.nameTokens,
+        nameStems: item.nameStems,
+        brandTokens: item.brandTokens,
+        brandStems: item.brandStems,
         queryNorm: queryNorm,
         queryTokens: queryTokens,
+        queryStems: queryStems,
         cleanBarcodeQuery: cleanQuery,
       );
 
@@ -382,11 +393,15 @@ class ProductRepository {
     required String nameNorm,
     required String? brandNorm,
     required String barcode,
+    required List<String> nameTokens,
+    required List<String> nameStems,
+    required List<String> brandTokens,
+    required List<String> brandStems,
     required String queryNorm,
     required List<String> queryTokens,
+    required List<String> queryStems,
     required String cleanBarcodeQuery,
   }) {
-
     var baseScore = 0;
 
     // 1. Exact match on name
@@ -408,7 +423,7 @@ class ProductRepository {
       }
     }
 
-    // Brand matching
+    // Brand matching (single query match)
     if (brandNorm != null) {
       var brandScore = 0;
       if (brandNorm == queryNorm) {
@@ -436,14 +451,80 @@ class ProductRepository {
       }
     }
 
-    // Multi-token matching (when query has multiple words)
-    if (baseScore == 0 && queryTokens.length > 1) {
-      final combined = brandNorm != null ? '$nameNorm $brandNorm' : nameNorm;
-      final allMatch = queryTokens.every((token) => combined.contains(token));
-      if (allMatch) {
-        final allInName =
-            queryTokens.every((token) => nameNorm.contains(token));
-        baseScore = allInName ? 420 : 380;
+    // Multi-token Polish inflection & brand alias matching (when query has multiple words)
+    if (queryTokens.length > 1) {
+      var matchedCount = 0;
+      var allInName = true;
+      var exactWordMatches = 0;
+
+      for (var i = 0; i < queryTokens.length; i++) {
+        final qToken = queryTokens[i];
+        final qStem = queryStems[i];
+        var tokenMatchedInName = false;
+        var tokenMatchedInBrand = false;
+
+        // Check name words
+        for (var j = 0; j < nameTokens.length; j++) {
+          final nToken = nameTokens[j];
+          final nStem = nameStems[j];
+
+          if (nToken == qToken) {
+            tokenMatchedInName = true;
+            exactWordMatches++;
+            break;
+          } else if (nStem == qStem && qStem.length >= 3) {
+            tokenMatchedInName = true;
+            break;
+          } else if (nToken.startsWith(qToken) || (qToken.length >= 4 && nToken.startsWith(qStem))) {
+            tokenMatchedInName = true;
+            break;
+          } else if (nToken.contains(qToken)) {
+            tokenMatchedInName = true;
+            break;
+          }
+        }
+
+        // Check brand & brand aliases
+        if (!tokenMatchedInName && brandNorm != null) {
+          if (matchBrandAlias(brandNorm, qToken, qStem)) {
+            tokenMatchedInBrand = true;
+          } else {
+            for (var k = 0; k < brandTokens.length; k++) {
+              final bToken = brandTokens[k];
+              final bStem = brandStems[k];
+              if (bToken == qToken || bStem == qStem || bToken.startsWith(qToken)) {
+                tokenMatchedInBrand = true;
+                break;
+              }
+            }
+          }
+        }
+
+        if (tokenMatchedInName) {
+          matchedCount++;
+        } else if (tokenMatchedInBrand) {
+          matchedCount++;
+          allInName = false;
+        } else {
+          allInName = false;
+        }
+      }
+
+      // If ALL query tokens matched
+      if (matchedCount == queryTokens.length) {
+        final multiScore = allInName
+            ? 420 + (exactWordMatches * 10).clamp(0, 50)
+            : 390 + (exactWordMatches * 10).clamp(0, 40);
+        if (multiScore > baseScore) {
+          baseScore = multiScore;
+        }
+      }
+      // Partial match for longer queries (e.g. 2 of 3 words, or 3 of 4 words)
+      else if (queryTokens.length >= 3 && matchedCount >= queryTokens.length - 1) {
+        const partialScore = 280;
+        if (partialScore > baseScore) {
+          baseScore = partialScore;
+        }
       }
     }
 
@@ -578,22 +659,36 @@ class ProductRepository {
       final clean = query.trim();
       if (clean.isEmpty) return const [];
 
-      final sanitized = clean.replaceAll(RegExp(r'[,()"\\]'), ' ').trim();
-      final tokens = sanitized
-          .split(RegExp(r'\s+'))
-          .where((t) => t.length >= 2)
-          .toList(growable: false);
+      final tokens = tokenizeForSearch(clean);
+      final stems = tokens.map(polishStem).toList();
 
       final conditions = <String>[
-        'name.ilike.%$sanitized%',
-        'brand.ilike.%$sanitized%',
+        'name.ilike.%$clean%',
+        'brand.ilike.%$clean%',
       ];
-      if (RegExp(r'^\d+$').hasMatch(sanitized)) {
-        conditions.add('barcode.eq.$sanitized');
+      if (RegExp(r'^\d+$').hasMatch(clean)) {
+        conditions.add('barcode.eq.$clean');
       }
-      for (final token in tokens.take(3)) {
-        if (token != sanitized) {
-          conditions.add('name.ilike.%$token%');
+      for (final token in tokens.take(4)) {
+        conditions.add('name.ilike.%$token%');
+        conditions.add('brand.ilike.%$token%');
+      }
+      for (final stem in stems.take(3)) {
+        if (!tokens.contains(stem) && stem.length >= 3) {
+          conditions.add('name.ilike.%$stem%');
+        }
+      }
+      for (final t in tokens) {
+        if (polishBrandAliases['mcdonald']?.contains(t) ?? false) {
+          conditions.add('brand.ilike.%McDonald%');
+        } else if (polishBrandAliases['kfc']?.contains(t) ?? false) {
+          conditions.add('brand.ilike.%KFC%');
+        } else if (polishBrandAliases['biedronka']?.contains(t) ?? false) {
+          conditions.add('brand.ilike.%Biedronka%');
+        } else if (polishBrandAliases['lidl']?.contains(t) ?? false) {
+          conditions.add('brand.ilike.%Lidl%');
+        } else if (polishBrandAliases['piatnica']?.contains(t) ?? false) {
+          conditions.add('brand.ilike.%Piątnica%');
         }
       }
 
@@ -682,11 +777,19 @@ class _IndexedProduct {
   final String nameNorm;
   final String? brandNorm;
   final String barcode;
+  final List<String> nameTokens;
+  final List<String> nameStems;
+  final List<String> brandTokens;
+  final List<String> brandStems;
 
   const _IndexedProduct({
     required this.product,
     required this.nameNorm,
     required this.brandNorm,
     required this.barcode,
+    required this.nameTokens,
+    required this.nameStems,
+    required this.brandTokens,
+    required this.brandStems,
   });
 }

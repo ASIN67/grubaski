@@ -5,7 +5,7 @@ void main() {
   group('DefaultFoodDatabase Tests', () {
     test('contains over 2800 predefined Polish food products', () {
       expect(defaultFoodProducts.length, greaterThanOrEqualTo(2800));
-      expect(defaultFoodProducts.length, equals(3353));
+      expect(defaultFoodProducts.length, equals(3355));
     });
 
     test('all product IDs are unique and non-empty', () {
