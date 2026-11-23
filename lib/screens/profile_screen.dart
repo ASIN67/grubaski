@@ -2,9 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/models.dart';
-import '../providers/ai_meal_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/user_profile_provider.dart';
@@ -563,141 +561,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Future<void> _showGeminiApiKeyDialog() async {
-    final aiService = ref.read(aiMealServiceProvider);
-    await aiService.init();
-    final isCustom = aiService.hasCustomApiKey;
-    final currentKey = aiService.customApiKey ?? '';
-
-    if (!mounted) return;
-
-    final controller = TextEditingController(text: currentKey);
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(
-            children: [
-              Icon(Icons.auto_awesome, color: AppColors.primary),
-              SizedBox(width: 10),
-              Flexible(child: Text('Klucz Gemini AI', style: TextStyle(fontSize: 18))),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Grubasek posiada wbudowany darmowy klucz współdzielony. Jeśli serwery Google są przeciążone, możesz wkleić swój własny bezpłatny klucz API z Google AI Studio, aby mieć gwarantowane limity.',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isCustom
-                        ? AppColors.primary.withOpacity(0.12)
-                        : Colors.amber.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isCustom ? Icons.check_circle_outline : Icons.info_outline,
-                        size: 18,
-                        color: isCustom ? AppColors.primary : Colors.amber[800],
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          isCustom
-                              ? 'Aktywny: Własny prywatny klucz API'
-                              : 'Aktywny: Domyślny klucz współdzielony',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: isCustom ? AppColors.primary : Colors.amber[800],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: controller,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    labelText: 'Twój klucz Gemini API',
-                    hintText: 'AIzaSy...',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    prefixIcon: const Icon(Icons.key),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: () {
-                    launchUrl(
-                      Uri.parse('https://aistudio.google.com/app/apikey'),
-                      mode: LaunchMode.externalApplication,
-                    );
-                  },
-                  icon: const Icon(Icons.open_in_new, size: 16),
-                  label: const Text('Pobierz darmowy klucz z Google AI Studio', style: TextStyle(fontSize: 12)),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            if (isCustom)
-              TextButton(
-                onPressed: () async {
-                  await aiService.setCustomApiKey(null);
-                  if (ctx.mounted) Navigator.of(ctx).pop();
-                  if (mounted) {
-                    setState(() {});
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Przywrócono domyślny klucz Gemini.')),
-                    );
-                  }
-                },
-                child: const Text('Przywróć domyślny', style: TextStyle(color: AppColors.error)),
-              ),
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Anuluj'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final text = controller.text.trim();
-                await aiService.setCustomApiKey(text.isEmpty ? null : text);
-                if (ctx.mounted) Navigator.of(ctx).pop();
-                if (mounted) {
-                  setState(() {});
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(text.isEmpty
-                          ? 'Przywrócono domyślny klucz Gemini.'
-                          : 'Zapisano własny klucz Gemini API!'),
-                    ),
-                  );
-                }
-              },
-              child: const Text('Zapisz'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   Future<void> _showClearDataDialog() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -1101,65 +964,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       label: Text(_isCheckingUpdate
                           ? 'Sprawdzanie...'
                           : 'Sprawdź dostępność aktualizacji'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // Gemini AI Configuration Card
-          Card(
-            elevation: 0,
-            margin: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide(
-                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                width: 1,
-              ),
-            ),
-            color: isDark ? AppColors.darkCard : AppColors.lightCard,
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(
-                    children: [
-                      Icon(Icons.auto_awesome, color: AppColors.primary),
-                      SizedBox(width: 10),
-                      Text(
-                        'Sztuczna inteligencja (Gemini AI)',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Szacowanie posiłków ze zdjęć i funkcja „Dokończ moje makro”. Aplikacja posiada wielomodelową kaskadę i automatyczne ponawianie, a opcjonalnie możesz podać własny darmowy klucz z Google AI Studio.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: isDark
-                          ? AppColors.darkTextSecondary
-                          : AppColors.lightTextSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _showGeminiApiKeyDialog,
-                      icon: const Icon(Icons.key_outlined),
-                      label: const Text('Klucz Gemini API (Własny / Domyślny)'),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                       ),

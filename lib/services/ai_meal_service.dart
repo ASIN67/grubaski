@@ -9,8 +9,6 @@ import '../models/ai_meal_models.dart';
 class AiMealService {
   static const String _defaultEncodedKey =
       'QVEuQWI4Uk42SXYxTHhlSFQxZjNnLUFmV0JWX2k1X0NKenVtOUk2aUpfSnRoVThyYkswZmc=';
-  static const String _prefApiKey = 'gemini_api_key_override';
-
   static String _resolveDefaultKey() {
     const fromEnv = String.fromEnvironment('GEMINI_API_KEY');
     if (fromEnv.isNotEmpty) return fromEnv;
@@ -30,7 +28,6 @@ class AiMealService {
   ];
 
   final Dio _dio;
-  String? _customApiKey;
 
   AiMealService({Dio? dio}) : _dio = dio ?? Dio(
           BaseOptions(
@@ -41,36 +38,11 @@ class AiMealService {
           ),
         );
 
-  /// Loads any custom API key saved by the user in SharedPreferences.
-  Future<void> init() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      _customApiKey = prefs.getString(_prefApiKey);
-    } catch (_) {}
-  }
+  /// Initializes the service.
+  Future<void> init() async {}
 
-  /// Returns the active API key (custom if configured, otherwise default).
-  String get apiKey =>
-      _customApiKey?.isNotEmpty == true ? _customApiKey! : _resolveDefaultKey();
-
-  /// Returns the custom API key if configured by the user.
-  String? get customApiKey => _customApiKey;
-
-  /// Whether the user has configured their own custom Gemini API key.
-  bool get hasCustomApiKey => _customApiKey != null && _customApiKey!.isNotEmpty;
-
-  /// Saves or removes a custom user API key.
-  Future<void> setCustomApiKey(String? newKey) async {
-    _customApiKey = newKey?.trim();
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (_customApiKey != null && _customApiKey!.isNotEmpty) {
-        await prefs.setString(_prefApiKey, _customApiKey!);
-      } else {
-        await prefs.remove(_prefApiKey);
-      }
-    } catch (_) {}
-  }
+  /// Returns the app's single unified Gemini API key.
+  String get apiKey => _resolveDefaultKey();
 
   /// Estimates calorie and macronutrient breakdown from text, image bytes, or both.
   ///
@@ -279,10 +251,10 @@ class AiMealService {
         return Exception('Błąd autoryzacji Gemini API. Sprawdź ważność klucza API w ustawieniach.');
       }
       if (error.response?.statusCode == 429) {
-        return Exception('Przekroczono limit zapytań (Rate Limit). Odczekaj chwilę lub dodaj własny klucz API w Ustawieniach.');
+        return Exception('Przekroczono limit zapytań (Rate Limit). Odczekaj chwilę i spróbuj ponownie.');
       }
       if (error.response?.statusCode == 503) {
-        return Exception('Serwery Gemini są chwilowo przeciążone. Odczekaj chwilę lub dodaj własny darmowy klucz API w Ustawieniach.');
+        return Exception('Serwery Gemini są chwilowo przeciążone. Spróbuj ponownie za moment.');
       }
       return Exception('Błąd sieciowy podczas kontaktu z Gemini AI (${error.message}).');
     }
