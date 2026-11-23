@@ -12,6 +12,7 @@ import 'categories/open_food_facts_staples.dart';
 import 'categories/polish_supermarket_staples.dart';
 import 'categories/popular_polish_brands.dart';
 import 'categories/ready_meals_and_fastfood.dart';
+import 'categories/fast_food_chains.dart';
 import 'categories/snacks_and_sweets.dart';
 
 export 'categories/bakery_and_grains.dart';
@@ -24,6 +25,7 @@ export 'categories/open_food_facts_staples.dart';
 export 'categories/polish_supermarket_staples.dart';
 export 'categories/popular_polish_brands.dart';
 export 'categories/ready_meals_and_fastfood.dart';
+export 'categories/fast_food_chains.dart';
 export 'categories/snacks_and_sweets.dart';
 
 /// Comprehensive predefined catalog of staple and popular Polish food products.
@@ -43,4 +45,5 @@ const List<FoodProduct> defaultFoodProducts = [
   ...openFoodFactsStaples,
   ...polishSupermarketStaples,
   ...popularPolishBrandsProducts,
+  ...fastFoodChainsProducts,
 ];
