@@ -21,9 +21,13 @@ class AiMealService {
     }
   }
 
-  // Current primary fast models supported by Google Gemini API
-  static const String _primaryModel = 'gemini-3.5-flash-lite';
-  static const String _fallbackModel = 'gemini-3.8-flash';
+  // Multi-tier pool of high-capacity Gemini models used for fallback cascade
+  static const List<String> _candidateModels = [
+    'gemini-3.5-flash',
+    'gemini-3.6-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-3.8-flash',
+  ];
 
   final Dio _dio;
   String? _customApiKey;
@@ -48,6 +52,12 @@ class AiMealService {
   /// Returns the active API key (custom if configured, otherwise default).
   String get apiKey =>
       _customApiKey?.isNotEmpty == true ? _customApiKey! : _resolveDefaultKey();
+
+  /// Returns the custom API key if configured by the user.
+  String? get customApiKey => _customApiKey;
+
+  /// Whether the user has configured their own custom Gemini API key.
+  bool get hasCustomApiKey => _customApiKey != null && _customApiKey!.isNotEmpty;
 
   /// Saves or removes a custom user API key.
   Future<void> setCustomApiKey(String? newKey) async {
@@ -151,42 +161,65 @@ class AiMealService {
       },
     };
 
-    // Try primary model first, fallback if unavailable
-    try {
-      return await _callGeminiModel(_primaryModel, requestBody);
-    } catch (primaryError) {
-      debugPrint('AiMealService: $_primaryModel call failed: $primaryError. Trying $_fallbackModel...');
-      try {
-        return await _callGeminiModel(_fallbackModel, requestBody);
-      } catch (fallbackError) {
-        debugPrint('AiMealService: $_fallbackModel also failed: $fallbackError');
-        throw _formatException(fallbackError);
-      }
-    }
+    // Execute request with candidate model cascade & automatic retry with backoff
+    final responseData = await _postWithCascade(requestBody);
+    return _parseEstimationResponse(responseData);
   }
 
-  Future<AiMealEstimationResult> _callGeminiModel(
-    String model,
-    Map<String, dynamic> requestBody,
-  ) async {
+  /// Executes a request across candidate models with automatic retry and exponential backoff
+  /// on 503 (Overloaded), 429 (Rate Limit), 500, or network timeouts.
+  Future<dynamic> _postWithCascade(Map<String, dynamic> requestBody) async {
     final currentKey = apiKey;
-    final url =
-        'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$currentKey';
-
-    final response = await _dio.post(
-      url,
-      data: jsonEncode(requestBody),
-    );
-
-    if (response.statusCode != 200) {
-      throw DioException(
-        requestOptions: response.requestOptions,
-        response: response,
-        message: 'Błąd API Gemini: status ${response.statusCode}',
-      );
+    if (currentKey.isEmpty) {
+      throw Exception('Brak klucza Gemini API. Skonfiguruj klucz w ustawieniach.');
     }
 
-    final data = response.data;
+    dynamic lastError;
+
+    for (final model in _candidateModels) {
+      final url =
+          'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$currentKey';
+
+      for (var attempt = 0; attempt < 2; attempt++) {
+        try {
+          final response = await _dio.post(
+            url,
+            data: jsonEncode(requestBody),
+          );
+
+          if (response.statusCode == 200) {
+            return response.data;
+          }
+          throw DioException(
+            requestOptions: response.requestOptions,
+            response: response,
+            message: 'Błąd API Gemini: status ${response.statusCode}',
+          );
+        } catch (e) {
+          lastError = e;
+          final isTransient = e is DioException &&
+              (e.response?.statusCode == 503 ||
+                  e.response?.statusCode == 429 ||
+                  e.response?.statusCode == 500 ||
+                  e.type == DioExceptionType.connectionTimeout ||
+                  e.type == DioExceptionType.receiveTimeout);
+
+          if (isTransient && attempt == 0) {
+            debugPrint('AiMealService: Transient error on $model: $e. Retrying in 1s...');
+            await Future.delayed(const Duration(milliseconds: 1000));
+            continue;
+          }
+
+          debugPrint('AiMealService: Model $model failed ($e). Switching to next candidate...');
+          break;
+        }
+      }
+    }
+
+    throw _formatException(lastError);
+  }
+
+  AiMealEstimationResult _parseEstimationResponse(dynamic data) {
     if (data is! Map<String, dynamic>) {
       throw const FormatException('Niepoprawna odpowiedź z serwera Gemini.');
     }
@@ -246,10 +279,10 @@ class AiMealService {
         return Exception('Błąd autoryzacji Gemini API. Sprawdź ważność klucza API w ustawieniach.');
       }
       if (error.response?.statusCode == 429) {
-        return Exception('Przekroczono chwilowy limit zapytań (Rate Limit). Odczekaj chwilę.');
+        return Exception('Przekroczono limit zapytań (Rate Limit). Odczekaj chwilę lub dodaj własny klucz API w Ustawieniach.');
       }
       if (error.response?.statusCode == 503) {
-        return Exception('Serwery Gemini są chwilowo przeciążone. Spróbuj ponownie za moment.');
+        return Exception('Serwery Gemini są chwilowo przeciążone. Odczekaj chwilę lub dodaj własny darmowy klucz API w Ustawieniach.');
       }
       return Exception('Błąd sieciowy podczas kontaktu z Gemini AI (${error.message}).');
     }
@@ -320,24 +353,8 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny JSON o schemacie:
       }
     };
 
-    try {
-      final response = await _dio.post(
-        'https://generativelanguage.googleapis.com/v1beta/models/$_primaryModel:generateContent?key=$key',
-        data: requestBody,
-      );
-      return _parseSuggestionsResponse(response.data);
-    } catch (primaryError) {
-      debugPrint('Gemini primary model failed: $primaryError. Trying fallback $_fallbackModel...');
-      try {
-        final fallbackResponse = await _dio.post(
-          'https://generativelanguage.googleapis.com/v1beta/models/$_fallbackModel:generateContent?key=$key',
-          data: requestBody,
-        );
-        return _parseSuggestionsResponse(fallbackResponse.data);
-      } catch (fallbackError) {
-        throw _formatException(fallbackError);
-      }
-    }
+    final responseData = await _postWithCascade(requestBody);
+    return _parseSuggestionsResponse(responseData);
   }
 
   List<AiMealSuggestion> _parseSuggestionsResponse(dynamic data) {
