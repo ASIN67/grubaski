@@ -322,13 +322,18 @@ class _RecipeCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  const SizedBox(width: 8),
                   const Spacer(),
-                  Text(
-                    recipe.authorName,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: colorScheme.onSurfaceVariant.withOpacity(0.8),
-                      fontStyle: FontStyle.italic,
+                  Flexible(
+                    child: Text(
+                      recipe.authorName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colorScheme.onSurfaceVariant.withOpacity(0.8),
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
                   ),
                 ],

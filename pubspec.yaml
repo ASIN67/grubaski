@@ -1,7 +1,7 @@
 name: grubasek
 description: "A comprehensive, offline-first calorie and macro tracking mobile application modeled after Fitatu."
 publish_to: 'none'
-version: 1.0.4+5
+version: 1.0.5+6
 
 environment:
   sdk: '>=3.5.0 <4.0.0'

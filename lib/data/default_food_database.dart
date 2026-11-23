@@ -10,6 +10,7 @@ import 'categories/fruits_vegetables_fats.dart';
 import 'categories/meat_and_fish.dart';
 import 'categories/open_food_facts_staples.dart';
 import 'categories/polish_supermarket_staples.dart';
+import 'categories/popular_polish_brands.dart';
 import 'categories/ready_meals_and_fastfood.dart';
 import 'categories/snacks_and_sweets.dart';
 
@@ -21,6 +22,7 @@ export 'categories/fruits_vegetables_fats.dart';
 export 'categories/meat_and_fish.dart';
 export 'categories/open_food_facts_staples.dart';
 export 'categories/polish_supermarket_staples.dart';
+export 'categories/popular_polish_brands.dart';
 export 'categories/ready_meals_and_fastfood.dart';
 export 'categories/snacks_and_sweets.dart';
 
@@ -40,4 +42,5 @@ const List<FoodProduct> defaultFoodProducts = [
   ...beveragesAndSauces,
   ...openFoodFactsStaples,
   ...polishSupermarketStaples,
+  ...popularPolishBrandsProducts,
 ];

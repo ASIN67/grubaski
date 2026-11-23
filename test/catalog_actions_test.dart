@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:grubasek/models/models.dart';
 import 'package:grubasek/providers/diary_provider.dart';
+import 'package:grubasek/screens/add_portion_sheet.dart';
 import 'package:grubasek/screens/add_product_screen.dart';
+import 'package:grubasek/screens/create_recipe_screen.dart';
 import 'package:grubasek/services/hive_service.dart';
 import 'package:grubasek/utils/app_theme.dart';
 import 'package:hive/hive.dart';
@@ -144,8 +146,48 @@ void main() {
       'recipe ingredients sum into a stored recipe and half-sized meal entry',
       (tester) async {
     final state = ProviderContainer();
-    await mountCatalog(tester, state);
-    await tester.tap(find.text('Nowy przepis'));
+    tester.view.physicalSize = const Size(390, 760);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(state.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: state,
+        child: MaterialApp(
+          theme: AppTheme.darkTheme,
+          locale: const Locale('pl', 'PL'),
+          supportedLocales: const [Locale('pl', 'PL')],
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final recipe = await Navigator.push<FoodProduct>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CreateRecipeScreen(),
+                      ),
+                    );
+                    if (recipe != null && context.mounted) {
+                      await AddPortionSheet.show(
+                        context,
+                        product: recipe,
+                        initialMealType: MealType.breakfast,
+                      );
+                    }
+                  },
+                  child: const Text('Start Recipe'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Start Recipe'));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextFormField, 'Nazwa potrawy'),

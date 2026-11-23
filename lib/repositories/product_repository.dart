@@ -37,19 +37,24 @@ class ProductRepository {
     if (cached != null && cached.length == _box.length) {
       return cached;
     }
-    final index = _box.values.map((p) => _IndexedProduct(
-      product: p,
-      nameNorm: normalizeForSearch(p.name),
-      brandNorm: p.brand != null ? normalizeForSearch(p.brand!) : null,
-      barcode: p.barcode?.trim() ?? '',
-    )).toList(growable: false);
+    final index = _box.values
+        .where((p) => !p.isRecipe && !p.id.startsWith('recipe_'))
+        .map((p) => _IndexedProduct(
+          product: p,
+          nameNorm: normalizeForSearch(p.name),
+          brandNorm: p.brand != null ? normalizeForSearch(p.brand!) : null,
+          barcode: p.barcode?.trim() ?? '',
+        ))
+        .toList(growable: false);
     _cachedIndex = index;
     return index;
   }
 
   /// Returns all food products saved in local storage.
   List<FoodProduct> getAllLocalProducts() {
-    return _box.values.toList();
+    return _box.values
+        .where((p) => !p.isRecipe && !p.id.startsWith('recipe_'))
+        .toList();
   }
 
   /// Returns a specific product by its internal [id] from local storage, or null if absent.
@@ -297,9 +302,11 @@ class ProductRepository {
     }
   }
 
-  /// Returns all custom products created by the user.
+  /// Returns all custom products created by the user (excluding recipes).
   List<FoodProduct> getCustomProducts() {
-    return _box.values.where((p) => p.isCustom).toList();
+    return _box.values
+        .where((p) => p.isCustom && !p.isRecipe && !p.id.startsWith('recipe_'))
+        .toList();
   }
 
   /// Performs an intelligent, prioritized local search across product name, brand,

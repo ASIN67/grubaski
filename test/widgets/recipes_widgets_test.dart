@@ -37,7 +37,7 @@ void main() {
 
   group('RecipesScreen Widget Tests', () {
     testWidgets('renders search field, category chips and action button', (tester) async {
-      await tester.binding.setSurfaceSize(const Size(500, 800));
+      await tester.binding.setSurfaceSize(const Size(500, 1000));
 
       await tester.pumpWidget(
         const ProviderScope(
@@ -53,9 +53,9 @@ void main() {
 
       expect(find.byType(TextField), findsOneWidget);
       expect(find.text('Szukaj przepisów, składników...'), findsOneWidget);
-      expect(find.text('Wszystkie'), findsOneWidget);
-      expect(find.text('Śniadanie'), findsOneWidget);
-      expect(find.text('Obiad'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'Wszystkie'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'Śniadanie'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, 'Obiad'), findsOneWidget);
       expect(find.byType(FloatingActionButton), findsOneWidget);
     });
   });

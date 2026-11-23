@@ -51,12 +51,12 @@ class AppUpdateService {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
       final version =
-          packageInfo.version.isNotEmpty ? packageInfo.version : '1.0.4';
-      final buildNumber = int.tryParse(packageInfo.buildNumber) ?? 5;
+          packageInfo.version.isNotEmpty ? packageInfo.version : '1.0.5';
+      final buildNumber = int.tryParse(packageInfo.buildNumber) ?? 6;
       return (version: version, buildNumber: buildNumber);
     } catch (e) {
       debugPrint('AppUpdateService: PackageInfo.fromPlatform fallback ($e)');
-      return (version: '1.0.3', buildNumber: 4);
+      return (version: '1.0.5', buildNumber: 6);
     }
   }
 

@@ -22,17 +22,19 @@ class HiveService {
 
   // Settings keys for database versioning and seeding
   static const String foodDatabaseVersionKey = 'food_database_version';
-  static const String foodDatabaseSeededKey = 'food_database_seeded_v4';
+  static const String foodDatabaseSeededKey = 'food_database_seeded_v5';
+  static const String foodDatabaseSeededV4Key = 'food_database_seeded_v4';
   static const String foodDatabaseSeededV3Key = 'food_database_seeded_v3';
   static const String foodDatabaseSeededV2Key = 'food_database_seeded_v2';
   static const String foodDatabaseSeededV1Key = 'food_database_seeded_v1';
-  static const int currentFoodDatabaseVersion = 4;
+  static const int currentFoodDatabaseVersion = 5;
 
   /// Returns current food database version stored in settingsBox (or 0 if unseeded).
   int get currentDatabaseVersion {
     final v = settingsBox.get(foodDatabaseVersionKey);
     if (v is int) return v;
-    if (settingsBox.get(foodDatabaseSeededKey) == true) return 4;
+    if (settingsBox.get(foodDatabaseSeededKey) == true) return 5;
+    if (settingsBox.get(foodDatabaseSeededV4Key) == true) return 4;
     if (settingsBox.get(foodDatabaseSeededV3Key) == true) return 3;
     if (settingsBox.get(foodDatabaseSeededV2Key) == true) return 2;
     if (settingsBox.get(foodDatabaseSeededV1Key) == true) return 1;

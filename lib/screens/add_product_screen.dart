@@ -11,12 +11,11 @@ import '../utils/string_utils.dart';
 import 'add_portion_sheet.dart';
 import 'barcode_scanner_screen.dart';
 import 'create_custom_product_screen.dart';
-import 'create_recipe_screen.dart';
 import 'quick_add_sheet.dart';
 
 enum _ProductFilter {
   all('Wszystkie', 'Wyszukaj produkt lub zeskanuj kod kreskowy.'),
-  custom('Własne', 'Utwórz własny produkt lub przepis.'),
+  custom('Własne', 'Utwórz własny produkt spożywczy.'),
   favorites('Ulubione', 'Dotknij gwiazdki przy produkcie, aby go tu zapisać.'),
   recent('Ostatnie', 'Tu pojawią się produkty dodane do posiłków tego dnia.');
 
@@ -78,12 +77,10 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     _handleSaved(entry);
   }
 
-  Future<void> _openCreateProduct({required bool recipe}) async {
+  Future<void> _openCreateCustomProduct() async {
     final product = await Navigator.of(context).push<FoodProduct>(
       MaterialPageRoute(
-        builder: (_) => recipe
-            ? const CreateRecipeScreen()
-            : const CreateCustomProductScreen(),
+        builder: (_) => const CreateCustomProductScreen(),
       ),
     );
     if (mounted && product != null) {
@@ -127,16 +124,23 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     List<MealEntry> entries,
     List<FoodProduct> catalog,
   ) {
+    // Recipes have their own dedicated category ("Przepisy") and must not appear in products.
+    final cleanResults = search.results
+        .where((p) => !p.isRecipe && !p.id.startsWith('recipe_'))
+        .toList();
+
     switch (_filter) {
       case _ProductFilter.all:
-        return search.results;
+        return cleanResults;
       case _ProductFilter.custom:
-        return search.results.where((product) => product.isCustom).toList();
+        return cleanResults.where((product) => product.isCustom).toList();
       case _ProductFilter.favorites:
-        return search.results.where((product) => product.isFavorite).toList();
+        return cleanResults.where((product) => product.isFavorite).toList();
       case _ProductFilter.recent:
         final catalogById = {
-          for (final product in catalog) product.id: product
+          for (final product in catalog)
+            if (!product.isRecipe && !product.id.startsWith('recipe_'))
+              product.id: product
         };
         final seen = <String>{};
         final query = normalizeForSearch(search.query);
@@ -144,6 +148,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
         return [
           for (final entry in entries.reversed)
             if (!entry.product.isQuickAdd &&
+                !entry.product.isRecipe &&
+                !entry.product.id.startsWith('recipe_') &&
                 seen.add(entry.product.id) &&
                 (normalizeForSearch(entry.product.fullDisplayName).contains(query) ||
                     (entry.product.barcode?.contains(rawQuery) ?? false)))
@@ -229,7 +235,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                         controller: _searchController,
                         textInputAction: TextInputAction.search,
                         decoration: InputDecoration(
-                          labelText: 'Szukaj produktu lub przepisu',
+                          labelText: 'Szukaj produktu',
                           prefixIcon: const Icon(Icons.search_rounded),
                           suffixIcon: hasSearchText
                               ? IconButton(
@@ -260,12 +266,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                             label: const Text('Szybki wpis'),
                           ),
                           OutlinedButton.icon(
-                            onPressed: () => _openCreateProduct(recipe: true),
-                            icon: const Icon(Icons.soup_kitchen_outlined),
-                            label: const Text('Nowy przepis'),
-                          ),
-                          OutlinedButton.icon(
-                            onPressed: () => _openCreateProduct(recipe: false),
+                            onPressed: _openCreateCustomProduct,
                             icon: const Icon(Icons.add_rounded),
                             label: const Text('Własny produkt'),
                           ),

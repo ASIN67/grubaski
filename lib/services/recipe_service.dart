@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../data/default_recipes.dart';
 import '../models/recipe_model.dart';
 import 'hive_service.dart';
 import 'supabase_service.dart';
@@ -185,15 +186,22 @@ class RecipeService {
       if (raw is String && raw.isNotEmpty) {
         final decoded = jsonDecode(raw);
         if (decoded is List) {
-          return decoded
+          final cached = decoded
               .whereType<Map>()
               .map((m) => CommunityRecipe.fromMap(Map<String, dynamic>.from(m)))
               .toList();
+          if (cached.isNotEmpty) {
+            final existingTitles = cached.map((r) => r.title.toLowerCase().trim()).toSet();
+            final missingDefaults = defaultRecipes
+                .where((dr) => !existingTitles.contains(dr.title.toLowerCase().trim()))
+                .toList();
+            return [...cached, ...missingDefaults];
+          }
         }
       }
     } catch (e) {
       debugPrint('RecipeService: Cache read failed ($e)');
     }
-    return [];
+    return List.from(defaultRecipes);
   }
 }
