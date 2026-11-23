@@ -122,7 +122,7 @@ class AiMealEstimationResult {
     final f100 = double.parse((fatGrams * factor).toStringAsFixed(1));
 
     return FoodProduct(
-      id: customId ?? const Uuid().v4(),
+      id: customId ?? 'ai_${const Uuid().v4()}',
       name: mealName,
       brand: 'AI Oszacowanie',
       caloriesPer100g: cal100.toDouble(),
@@ -198,7 +198,7 @@ class AiMealSuggestion {
 
   FoodProduct toFoodProduct() {
     return FoodProduct(
-      id: const Uuid().v4(),
+      id: 'ai_${const Uuid().v4()}',
       name: '✨ $title',
       brand: 'AI Dokończ moje makro',
       caloriesPer100g: calories.toDouble(),

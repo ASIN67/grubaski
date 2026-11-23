@@ -222,6 +222,7 @@ class AiMealNotifier extends StateNotifier<AiMealState> {
             : finalFat,
         servingSizeGrams: finalGrams > 0 ? finalGrams : 100.0,
         servingName: 'porcja',
+        sharePublicly: false,
       );
 
       // Save to diary

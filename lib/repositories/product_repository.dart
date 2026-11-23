@@ -235,6 +235,7 @@ class ProductRepository {
     double? fiberPer100g,
     double servingSizeGrams = 100.0,
     String? servingName,
+    bool sharePublicly = false,
   }) async {
     final customProduct = FoodProduct(
       id: _uuid.v4(),
@@ -254,15 +255,39 @@ class ProductRepository {
 
     await saveProduct(customProduct);
 
-    // Automatically send new custom product to Supabase public_products table
-    // so it is shared and available for online searches, without blocking local save.
-    unawaited(uploadProductToSupabase(customProduct));
+    // Only upload to Supabase if explicitly requested, and strictly exclude AI meals or recipes.
+    if (sharePublicly &&
+        !_isPrivateOrAiProduct(customProduct)) {
+      unawaited(uploadProductToSupabase(customProduct));
+    }
 
     return customProduct;
   }
 
+  /// Checks if a product is a private AI estimation, AI suggestion, or recipe that should NOT be in public_products.
+  static bool _isPrivateOrAiProduct(FoodProduct product) {
+    final brand = product.brand?.toLowerCase() ?? '';
+    final id = product.id.toLowerCase();
+    final name = product.name.toLowerCase();
+
+    return product.isRecipe ||
+        id.startsWith('recipe_') ||
+        id.startsWith('ai_') ||
+        brand == 'ai oszacowanie' ||
+        brand == 'ai dokończ moje makro' ||
+        brand.startsWith('ai ') ||
+        brand == 'przepis' ||
+        name.startsWith('✨');
+  }
+
   /// Uploads a custom product to Supabase public_products table so it is shared with other users.
   Future<void> uploadProductToSupabase(FoodProduct product) async {
+    // Strictly prevent AI estimates and private user calculations from leaking into public database
+    if (_isPrivateOrAiProduct(product)) {
+      debugPrint('ProductRepository: Skipped uploading private/AI item ${product.id} (${product.name}) to Supabase.');
+      return;
+    }
+
     try {
       final table = _supabaseService.publicProductsTable;
       if (table == null) return;
@@ -295,17 +320,19 @@ class ProductRepository {
     try {
       final custom = getCustomProducts();
       for (final product in custom) {
-        unawaited(uploadProductToSupabase(product));
+        if (!_isPrivateOrAiProduct(product)) {
+          unawaited(uploadProductToSupabase(product));
+        }
       }
     } catch (e) {
       debugPrint('ProductRepository: Failed to sync local custom products: $e');
     }
   }
 
-  /// Returns all custom products created by the user (excluding recipes).
+  /// Returns all custom products created by the user (excluding recipes and AI estimations).
   List<FoodProduct> getCustomProducts() {
     return _box.values
-        .where((p) => p.isCustom && !p.isRecipe && !p.id.startsWith('recipe_'))
+        .where((p) => p.isCustom && !_isPrivateOrAiProduct(p))
         .toList();
   }
 
@@ -572,13 +599,18 @@ class ProductRepository {
 
       final response = await table
           .select()
+          .not('brand', 'ilike', 'AI %')
+          .neq('brand', 'Przepis')
           .or(conditions.join(','))
           .limit(limit);
 
       final list = <FoodProduct>[];
       for (final row in response as List) {
         final map = row as Map<String, dynamic>;
-        list.add(_mapRowToFoodProduct(map));
+        final product = _mapRowToFoodProduct(map);
+        if (!_isPrivateOrAiProduct(product)) {
+          list.add(product);
+        }
       }
       return list;
     } catch (e) {
