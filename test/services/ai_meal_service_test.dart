@@ -169,5 +169,116 @@ void main() {
       expect(result.calories, 480.0);
       expect(result.proteinGrams, 32.0);
     });
+
+    test('failover instantly on 429 to succeed with next key or model', () async {
+      var callCount = 0;
+      final dio = Dio();
+      dio.httpClientAdapter = _FailoverAdapter(
+        onFetch: (options) {
+          callCount++;
+          if (callCount == 1) {
+            // First call fails with 429 Rate limit
+            return ResponseBody.fromString(
+              jsonEncode({'error': {'code': 429, 'message': 'ResourceExhausted'}}),
+              429,
+              headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+            );
+          }
+          // Second call succeeds
+          return ResponseBody.fromString(
+            jsonEncode({
+              'candidates': [
+                {
+                  'content': {
+                    'parts': [
+                      {
+                        'text': jsonEncode({
+                          'mealName': 'Kanapka z twarogiem',
+                          'calories': 250,
+                          'proteinGrams': 18.0,
+                          'carbsGrams': 30.0,
+                          'fatGrams': 5.0,
+                          'estimatedWeightGrams': 150,
+                          'confidence': 'Wysoka',
+                          'adviceOrNotes': 'Lekki i pożywny posiłek.',
+                          'ingredients': []
+                        })
+                      }
+                    ]
+                  }
+                }
+              ]
+            }),
+            200,
+            headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+          );
+        },
+      );
+
+      final service = AiMealService(dio: dio);
+      final result = await service.estimateMeal(textPrompt: 'Kanapka z twarogiem');
+      expect(result.mealName, 'Kanapka z twarogiem');
+      expect(callCount, greaterThanOrEqualTo(2));
+    });
+
+    test('suggestMealsForRemainingMacro parses suggestions correctly', () async {
+      final dio = Dio();
+      dio.httpClientAdapter = MockAdapter(responseData: {
+        'candidates': [
+          {
+            'content': {
+              'parts': [
+                {
+                  'text': jsonEncode({
+                    'suggestions': [
+                      {
+                        'title': 'Szejk białkowy z bananem',
+                        'description': 'Zblenduj białko z mlekiem i bananem',
+                        'prepTimeMinutes': 5,
+                        'calories': 320,
+                        'protein': 30.0,
+                        'carbs': 35.0,
+                        'fat': 4.0,
+                        'ingredients': ['30g odżywki', '1 banan', '250ml mleka']
+                      }
+                    ]
+                  })
+                }
+              ]
+            }
+          }
+        ]
+      });
+
+      final service = AiMealService(dio: dio);
+      final suggestions = await service.suggestMealsForRemainingMacro(
+        remainingCalories: 320,
+        remainingProtein: 30,
+        remainingCarbs: 35,
+        remainingFat: 4,
+      );
+
+      expect(suggestions, hasLength(1));
+      expect(suggestions.first.title, 'Szejk białkowy z bananem');
+      expect(suggestions.first.prepTimeMinutes, 5);
+      expect(suggestions.first.calories, 320);
+    });
   });
+}
+
+class _FailoverAdapter implements HttpClientAdapter {
+  final ResponseBody Function(RequestOptions options) onFetch;
+  _FailoverAdapter({required this.onFetch});
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    return onFetch(options);
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

@@ -1,14 +1,21 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/ai_meal_models.dart';
+import 'supabase_service.dart';
 
 /// Service responsible for estimating meal macros and calories via Gemini AI.
 /// Supports text descriptions, image photos (camera / gallery), and photo + text notes.
+///
+/// Features:
+/// 1. Dynamic API Key Pooling from Supabase (Option 2) with round-robin load distribution.
+/// 2. Instant failover across keys on 429 (Rate Limit) with zero sleep delay.
+/// 3. Ultra-fast model cascade prioritizing low-latency Flash-Lite models (~1-2s response).
+/// 4. Resilient offline fallback to built-in default key.
 class AiMealService {
   static const String _defaultEncodedKey =
       'QVEuQWI4Uk42SXYxTHhlSFQxZjNnLUFmV0JWX2k1X0NKenVtOUk2aUpfSnRoVThyYkswZmc=';
+
   static String _resolveDefaultKey() {
     const fromEnv = String.fromEnvironment('GEMINI_API_KEY');
     if (fromEnv.isNotEmpty) return fromEnv;
@@ -19,30 +26,98 @@ class AiMealService {
     }
   }
 
-  // Multi-tier pool of high-capacity Gemini models used for fallback cascade
+  // Multi-tier pool of high-capacity Gemini models sorted by response speed and availability
   static const List<String> _candidateModels = [
-    'gemini-3.5-flash',
-    'gemini-3.6-flash',
+    'gemini-flash-lite-latest',
     'gemini-3.5-flash-lite',
     'gemini-3.8-flash',
+    'gemini-3.6-flash',
   ];
 
   final Dio _dio;
+  List<String> _keyPool = [];
+  int _keyIndex = 0;
+  bool _isSyncingKeys = false;
 
-  AiMealService({Dio? dio}) : _dio = dio ?? Dio(
-          BaseOptions(
-            connectTimeout: const Duration(seconds: 25),
-            receiveTimeout: const Duration(seconds: 40),
-            sendTimeout: const Duration(seconds: 35),
-            headers: {'Content-Type': 'application/json'},
-          ),
+  AiMealService({Dio? dio})
+      : _dio = dio ??
+            Dio(
+              BaseOptions(
+                connectTimeout: const Duration(seconds: 10),
+                receiveTimeout: const Duration(seconds: 25),
+                sendTimeout: const Duration(seconds: 20),
+                headers: {'Content-Type': 'application/json'},
+              ),
+            ) {
+    final def = _resolveDefaultKey();
+    if (def.isNotEmpty) {
+      _keyPool = [def];
+    }
+  }
+
+  /// Initializes the service and syncs active API keys from Supabase.
+  Future<void> init() async {
+    await syncKeysFromSupabase();
+  }
+
+  /// Synchronizes active API keys from Supabase table `ai_api_keys`.
+  /// Automatically retains the built-in key as a safe fallback.
+  Future<void> syncKeysFromSupabase() async {
+    if (_isSyncingKeys) return;
+    _isSyncingKeys = true;
+
+    try {
+      final client = SupabaseService.instance.client;
+      if (client == null) {
+        _ensureFallbackKey();
+        return;
+      }
+
+      final response = await client
+          .from('ai_api_keys')
+          .select('api_key')
+          .eq('is_active', true)
+          .order('created_at', ascending: true);
+
+      final List<dynamic> rows = response as List<dynamic>;
+      final fetchedKeys = rows
+          .map((r) => (r['api_key'] ?? '').toString().trim())
+          .where((k) => k.isNotEmpty)
+          .toList();
+
+      if (fetchedKeys.isNotEmpty) {
+        _keyPool = fetchedKeys;
+        debugPrint(
+          'AiMealService: Loaded ${_keyPool.length} active Gemini API key(s) from Supabase.',
         );
+      } else {
+        _ensureFallbackKey();
+      }
+    } catch (e) {
+      debugPrint('AiMealService: Supabase key sync error ($e). Using default key.');
+      _ensureFallbackKey();
+    } finally {
+      _isSyncingKeys = false;
+    }
+  }
 
-  /// Initializes the service.
-  Future<void> init() async {}
+  void _ensureFallbackKey() {
+    if (_keyPool.isEmpty) {
+      final def = _resolveDefaultKey();
+      if (def.isNotEmpty) {
+        _keyPool = [def];
+      }
+    }
+  }
 
-  /// Returns the app's single unified Gemini API key.
-  String get apiKey => _resolveDefaultKey();
+  /// Returns the currently active Gemini API key.
+  String get apiKey {
+    _ensureFallbackKey();
+    return _keyPool.isNotEmpty ? _keyPool.first : _resolveDefaultKey();
+  }
+
+  /// Returns unmodifiable list of current API keys in rotation.
+  List<String> get activeKeys => List.unmodifiable(_keyPool);
 
   /// Estimates calorie and macronutrient breakdown from text, image bytes, or both.
   ///
@@ -130,29 +205,36 @@ class AiMealService {
       'generationConfig': {
         'responseMimeType': 'application/json',
         'temperature': 0.2, // Low temperature for consistent, factual nutritional math
+        'maxOutputTokens': 1024, // Prevents excessive generation and cuts latency
       },
     };
 
-    // Execute request with candidate model cascade & automatic retry with backoff
+    // Execute request with dynamic key pooling & fast candidate model cascade
     final responseData = await _postWithCascade(requestBody);
     return _parseEstimationResponse(responseData);
   }
 
-  /// Executes a request across candidate models with automatic retry and exponential backoff
-  /// on 503 (Overloaded), 429 (Rate Limit), 500, or network timeouts.
+  /// Executes a request across candidate models and the active key pool.
+  /// On 429 (Rate Limit / Quota Exceeded), immediately fails over to the next key with 0ms delay.
+  /// On 503 (Overloaded) or timeouts, immediately cascades to the next candidate model.
   Future<dynamic> _postWithCascade(Map<String, dynamic> requestBody) async {
-    final currentKey = apiKey;
-    if (currentKey.isEmpty) {
-      throw Exception('Brak klucza Gemini API. Skonfiguruj klucz w ustawieniach.');
+    _ensureFallbackKey();
+    final availableKeys = _keyPool.where((k) => k.trim().isNotEmpty).toList();
+    if (availableKeys.isEmpty) {
+      throw Exception('Brak klucza Gemini API. Skonfiguruj klucz w bazie danych.');
     }
 
     dynamic lastError;
 
+    // Try candidate models in order of speed
     for (final model in _candidateModels) {
-      final url =
-          'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$currentKey';
+      // Rotate through available keys starting from current index
+      for (var k = 0; k < availableKeys.length; k++) {
+        final currentKey =
+            availableKeys[(_keyIndex + k) % availableKeys.length];
+        final url =
+            'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$currentKey';
 
-      for (var attempt = 0; attempt < 2; attempt++) {
         try {
           final response = await _dio.post(
             url,
@@ -160,6 +242,8 @@ class AiMealService {
           );
 
           if (response.statusCode == 200) {
+            // Advance key index for round-robin load distribution
+            _keyIndex = (_keyIndex + 1) % availableKeys.length;
             return response.data;
           }
           throw DioException(
@@ -169,20 +253,32 @@ class AiMealService {
           );
         } catch (e) {
           lastError = e;
-          final isTransient = e is DioException &&
-              (e.response?.statusCode == 503 ||
-                  e.response?.statusCode == 429 ||
-                  e.response?.statusCode == 500 ||
-                  e.type == DioExceptionType.connectionTimeout ||
-                  e.type == DioExceptionType.receiveTimeout);
+          final statusCode = e is DioException ? e.response?.statusCode : null;
 
-          if (isTransient && attempt == 0) {
-            debugPrint('AiMealService: Transient error on $model: $e. Retrying in 1s...');
-            await Future.delayed(const Duration(milliseconds: 1000));
+          // 429 Rate Limit / Quota Exceeded: Immediately switch to next key in pool
+          if (statusCode == 429) {
+            debugPrint(
+              'AiMealService: Key quota reached (429) on $model. Switching to next key in pool instantly...',
+            );
             continue;
           }
 
-          debugPrint('AiMealService: Model $model failed ($e). Switching to next candidate...');
+          // 503 Overloaded, 500, or network timeouts: Immediately cascade to next model
+          if (statusCode == 503 ||
+              statusCode == 500 ||
+              (e is DioException &&
+                  (e.type == DioExceptionType.connectionTimeout ||
+                      e.type == DioExceptionType.receiveTimeout))) {
+            debugPrint(
+              'AiMealService: Server spike ($statusCode) on $model. Cascading to next model instantly...',
+            );
+            break;
+          }
+
+          // Other errors (e.g. 400 Bad Request): cascade to next model
+          debugPrint(
+            'AiMealService: Error on $model: $e. Cascading to next candidate...',
+          );
           break;
         }
       }
@@ -242,21 +338,34 @@ class AiMealService {
       if (error.type == DioExceptionType.connectionTimeout ||
           error.type == DioExceptionType.receiveTimeout ||
           error.type == DioExceptionType.sendTimeout) {
-        return Exception('Przekroczono limit czasu połączenia. Sprawdź internet i spróbuj ponownie.');
+        return Exception(
+          'Przekroczono limit czasu połączenia. Sprawdź internet i spróbuj ponownie.',
+        );
       }
       if (error.response?.statusCode == 400) {
-        return Exception('Nieprawidłowe zapytanie do AI. Upewnij się, że zdjęcie jest czytelne.');
+        return Exception(
+          'Nieprawidłowe zapytanie do AI. Upewnij się, że zdjęcie jest czytelne.',
+        );
       }
-      if (error.response?.statusCode == 403 || error.response?.statusCode == 401) {
-        return Exception('Błąd autoryzacji Gemini API. Sprawdź ważność klucza API w ustawieniach.');
+      if (error.response?.statusCode == 403 ||
+          error.response?.statusCode == 401) {
+        return Exception(
+          'Błąd autoryzacji Gemini API. Sprawdź ważność kluczy API.',
+        );
       }
       if (error.response?.statusCode == 429) {
-        return Exception('Przekroczono limit zapytań (Rate Limit). Odczekaj chwilę i spróbuj ponownie.');
+        return Exception(
+          'Chwilowo wyczerpano limit zapytań dla wszystkich kluczy AI. Spróbuj ponownie za moment.',
+        );
       }
       if (error.response?.statusCode == 503) {
-        return Exception('Serwery Gemini są chwilowo przeciążone. Spróbuj ponownie za moment.');
+        return Exception(
+          'Serwery Gemini są chwilowo przeciążone. Spróbuj ponownie za moment.',
+        );
       }
-      return Exception('Błąd sieciowy podczas kontaktu z Gemini AI (${error.message}).');
+      return Exception(
+        'Błąd sieciowy podczas kontaktu z Gemini AI (${error.message}).',
+      );
     }
     return Exception(error.toString());
   }
@@ -269,10 +378,7 @@ class AiMealService {
     required double remainingFat,
     String? dietaryPreferences,
   }) async {
-    final key = apiKey;
-    if (key.isEmpty) {
-      throw Exception('Brak klucza Gemini API. Skonfiguruj klucz w ustawieniach.');
-    }
+    _ensureFallbackKey();
 
     final prompt = '''
 Jesteś doświadczonym dietetykiem klinicznym i sportowym w aplikacji Grubasek.
@@ -322,6 +428,7 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny JSON o schemacie:
       'generationConfig': {
         'responseMimeType': 'application/json',
         'temperature': 0.4,
+        'maxOutputTokens': 1024, // Cuts generation latency
       }
     };
 
