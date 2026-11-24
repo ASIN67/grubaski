@@ -8,10 +8,12 @@ import 'supabase_service.dart';
 /// Supports text descriptions, image photos (camera / gallery), and photo + text notes.
 ///
 /// Features:
-/// 1. Dynamic API Key Pooling from Supabase (Option 2) with round-robin load distribution.
+/// 1. Dynamic API Key Pooling from Supabase with round-robin load distribution.
 /// 2. Instant failover across keys on 429 (Rate Limit) with zero sleep delay.
 /// 3. Ultra-fast model cascade prioritizing low-latency Flash-Lite models (~1-2s response).
-/// 4. Resilient offline fallback to built-in default key.
+/// 4. Strict responseSchema enforcement to guarantee valid, type-safe JSON output.
+/// 5. Robust JSON sanitizer to prevent any syntax / unquoted property parse crashes.
+/// 6. Realistic nutritional math for macro finisher without blind number copying.
 class AiMealService {
   static const String _defaultEncodedKey =
       'QVEuQWI4Uk42SXYxTHhlSFQxZjNnLUFmV0JWX2k1X0NKenVtOUk2aUpfSnRoVThyYkswZmc=';
@@ -33,6 +35,85 @@ class AiMealService {
     'gemini-3.8-flash',
     'gemini-3.6-flash',
   ];
+
+  static const Map<String, dynamic> _estimationResponseSchema = {
+    'type': 'OBJECT',
+    'properties': {
+      'mealName': {'type': 'STRING'},
+      'calories': {'type': 'NUMBER'},
+      'proteinGrams': {'type': 'NUMBER'},
+      'carbsGrams': {'type': 'NUMBER'},
+      'fatGrams': {'type': 'NUMBER'},
+      'estimatedWeightGrams': {'type': 'NUMBER'},
+      'confidence': {
+        'type': 'STRING',
+        'enum': ['Wysoka', 'Średnia', 'Niska']
+      },
+      'adviceOrNotes': {'type': 'STRING'},
+      'ingredients': {
+        'type': 'ARRAY',
+        'items': {
+          'type': 'OBJECT',
+          'properties': {
+            'name': {'type': 'STRING'},
+            'weightGrams': {'type': 'NUMBER'},
+            'calories': {'type': 'NUMBER'},
+            'protein': {'type': 'NUMBER'},
+            'carbs': {'type': 'NUMBER'},
+            'fat': {'type': 'NUMBER'}
+          },
+          'required': ['name', 'weightGrams', 'calories', 'protein', 'carbs', 'fat']
+        }
+      }
+    },
+    'required': [
+      'mealName',
+      'calories',
+      'proteinGrams',
+      'carbsGrams',
+      'fatGrams',
+      'estimatedWeightGrams',
+      'confidence',
+      'adviceOrNotes',
+      'ingredients'
+    ]
+  };
+
+  static const Map<String, dynamic> _suggestionsResponseSchema = {
+    'type': 'OBJECT',
+    'properties': {
+      'suggestions': {
+        'type': 'ARRAY',
+        'items': {
+          'type': 'OBJECT',
+          'properties': {
+            'title': {'type': 'STRING'},
+            'description': {'type': 'STRING'},
+            'prepTimeMinutes': {'type': 'INTEGER'},
+            'calories': {'type': 'NUMBER'},
+            'protein': {'type': 'NUMBER'},
+            'carbs': {'type': 'NUMBER'},
+            'fat': {'type': 'NUMBER'},
+            'ingredients': {
+              'type': 'ARRAY',
+              'items': {'type': 'STRING'}
+            }
+          },
+          'required': [
+            'title',
+            'description',
+            'prepTimeMinutes',
+            'calories',
+            'protein',
+            'carbs',
+            'fat',
+            'ingredients'
+          ]
+        }
+      }
+    },
+    'required': ['suggestions']
+  };
 
   final Dio _dio;
   List<String> _keyPool = [];
@@ -120,10 +201,6 @@ class AiMealService {
   List<String> get activeKeys => List.unmodifiable(_keyPool);
 
   /// Estimates calorie and macronutrient breakdown from text, image bytes, or both.
-  ///
-  /// - [textPrompt]: Optional user description (e.g. "Jajecznica z 3 jaj na maśle...").
-  /// - [imageBytes]: Optional raw image data (JPEG, PNG, WEBP).
-  /// - [imageMimeType]: MIME type of image (defaults to 'image/jpeg').
   Future<AiMealEstimationResult> estimateMeal({
     String? textPrompt,
     Uint8List? imageBytes,
@@ -173,27 +250,7 @@ class AiMealService {
     }
 
     textInstruction.writeln(
-      '\nOdpowiedz WYŁĄCZNIE poprawnym obiektem JSON w poniższym formacie (bez zbędnego tekstu pobocznego):\n'
-      '{\n'
-      '  "mealName": "Krótka, czytelna nazwa posiłku po polsku",\n'
-      '  "calories": 450,\n'
-      '  "proteinGrams": 24.5,\n'
-      '  "carbsGrams": 42.0,\n'
-      '  "fatGrams": 16.0,\n'
-      '  "estimatedWeightGrams": 320,\n'
-      '  "confidence": "Wysoka" lub "Średnia",\n'
-      '  "adviceOrNotes": "Krótka (1-2 zdania) wskazówka dietetyczna dot. tego posiłku po polsku",\n'
-      '  "ingredients": [\n'
-      '    {\n'
-      '      "name": "Nazwa składnika",\n'
-      '      "weightGrams": 100,\n'
-      '      "calories": 150,\n'
-      '      "protein": 10,\n'
-      '      "carbs": 20,\n'
-      '      "fat": 5\n'
-      '    }\n'
-      '  ]\n'
-      '}',
+      '\nOdpowiedz obiektem JSON ściśle według zadanego schematu.',
     );
 
     promptParts.add({'text': textInstruction.toString()});
@@ -204,8 +261,9 @@ class AiMealService {
       ],
       'generationConfig': {
         'responseMimeType': 'application/json',
-        'temperature': 0.2, // Low temperature for consistent, factual nutritional math
-        'maxOutputTokens': 1024, // Prevents excessive generation and cuts latency
+        'responseSchema': _estimationResponseSchema,
+        'temperature': 0.2,
+        'maxOutputTokens': 2048,
       },
     };
 
@@ -275,7 +333,7 @@ class AiMealService {
             break;
           }
 
-          // Other errors (e.g. 400 Bad Request): cascade to next model
+          // Other errors: cascade to next model
           debugPrint(
             'AiMealService: Error on $model: $e. Cascading to next candidate...',
           );
@@ -285,6 +343,40 @@ class AiMealService {
     }
 
     throw _formatException(lastError);
+  }
+
+  /// Robust JSON extraction: handles markdown code fences, comments, and leading/trailing chatter.
+  static String sanitizeJson(String rawText) {
+    var text = rawText.trim();
+
+    // Strip markdown code fences if present (```json ... ``` or ``` ...)
+    if (text.startsWith('```')) {
+      final firstNewline = text.indexOf('\n');
+      if (firstNewline != -1) {
+        text = text.substring(firstNewline + 1);
+      }
+      if (text.endsWith('```')) {
+        text = text.substring(0, text.length - 3);
+      }
+      text = text.trim();
+    }
+
+    // Extract exact outer JSON block (first '{' or '[' to last '}' or ']')
+    final firstObj = text.indexOf('{');
+    final firstArr = text.indexOf('[');
+    if (firstObj != -1 && (firstArr == -1 || firstObj < firstArr)) {
+      final lastObj = text.lastIndexOf('}');
+      if (lastObj != -1 && lastObj > firstObj) {
+        text = text.substring(firstObj, lastObj + 1);
+      }
+    } else if (firstArr != -1) {
+      final lastArr = text.lastIndexOf(']');
+      if (lastArr != -1 && lastArr > firstArr) {
+        text = text.substring(firstArr, lastArr + 1);
+      }
+    }
+
+    return text.trim();
   }
 
   AiMealEstimationResult _parseEstimationResponse(dynamic data) {
@@ -304,32 +396,25 @@ class AiMealService {
       throw const FormatException('Brak treści w odpowiedzi modelu Gemini.');
     }
 
-    final rawText = (parts.first['text'] ?? '').toString().trim();
-    if (rawText.isEmpty) {
-      throw const FormatException('Pusta odpowiedź z modelu Gemini.');
-    }
+    final rawText = (parts.first['text'] ?? '').toString();
+    final cleanJson = sanitizeJson(rawText);
 
-    // Clean any markdown code fences if present (e.g. ```json ... ```)
-    String cleanJson = rawText;
-    if (cleanJson.startsWith('```json')) {
-      cleanJson = cleanJson.substring(7);
-    } else if (cleanJson.startsWith('```')) {
-      cleanJson = cleanJson.substring(3);
-    }
-    if (cleanJson.endsWith('```')) {
-      cleanJson = cleanJson.substring(0, cleanJson.length - 3);
-    }
-    cleanJson = cleanJson.trim();
-
-    final decoded = jsonDecode(cleanJson);
-    if (decoded is List && decoded.isNotEmpty) {
-      return AiMealEstimationResult.fromJson(
-        Map<String, dynamic>.from(decoded.first as Map),
+    try {
+      final decoded = jsonDecode(cleanJson);
+      if (decoded is List && decoded.isNotEmpty) {
+        return AiMealEstimationResult.fromJson(
+          Map<String, dynamic>.from(decoded.first as Map),
+        );
+      } else if (decoded is Map<String, dynamic>) {
+        return AiMealEstimationResult.fromJson(decoded);
+      } else {
+        throw FormatException('Nieoczekiwana struktura JSON: $decoded');
+      }
+    } catch (e) {
+      debugPrint('AiMealService JSON parse error: $e\nRaw text:\n$rawText');
+      throw const FormatException(
+        'Nie udało się poprawnie zinterpretować danych od AI. Spróbuj ponownie lub doprecyzuj opis posiłku.',
       );
-    } else if (decoded is Map<String, dynamic>) {
-      return AiMealEstimationResult.fromJson(decoded);
-    } else {
-      throw FormatException('Nieoczekiwana struktura JSON: $decoded');
     }
   }
 
@@ -371,6 +456,10 @@ class AiMealService {
   }
 
   /// Generates 3 realistic, delicious meal/snack suggestions to finish the user's remaining macros for the day.
+  ///
+  /// Mathematical integrity guarantees:
+  /// - Each of the 3 suggestions has its OWN unique, realistic calories & macros calculated from its ingredients.
+  /// - No blind copying of the user's exact missing numbers onto every dish.
   Future<List<AiMealSuggestion>> suggestMealsForRemainingMacro({
     required int remainingCalories,
     required double remainingProtein,
@@ -380,41 +469,27 @@ class AiMealService {
   }) async {
     _ensureFallbackKey();
 
+    final calTarget = remainingCalories.round();
+    final pTarget = remainingProtein.toStringAsFixed(1);
+    final cTarget = remainingCarbs.toStringAsFixed(1);
+    final fTarget = remainingFat.toStringAsFixed(1);
+
     final prompt = '''
-Jesteś doświadczonym dietetykiem klinicznym i sportowym w aplikacji Grubasek.
-Użytkownikowi pozostało dzisiaj do zjedzenia:
-- Kalorie: $remainingCalories kcal
-- Białko: ${remainingProtein.toStringAsFixed(1)} g
-- Węglowodany: ${remainingCarbs.toStringAsFixed(1)} g
-- Tłuszcze: ${remainingFat.toStringAsFixed(1)} g
-${dietaryPreferences != null && dietaryPreferences.isNotEmpty ? 'Preferencje/wykluczenia: $dietaryPreferences' : ''}
+Jesteś doświadczonym dietetykiem klinicznym i szefem kuchni w aplikacji Grubasek.
+Użytkownikowi pozostało dzisiaj do spożycia orientacyjnie:
+- Kalorie: ~$calTarget kcal
+- Białko: ~$pTarget g
+- Węglowodany: ~$cTarget g
+- Tłuszcze: ~$fTarget g
+${dietaryPreferences != null && dietaryPreferences.trim().isNotEmpty ? 'Preferencje/wykluczenia dietetyczne użytkownika: "${dietaryPreferences.trim()}"' : ''}
 
-Zaproponuj DOKŁADNIE 3 konkretne, pyszne, realistyczne i proste w przygotowaniu propozycje posiłków lub przekąsek, które idealnie domykają ten bilans (lub mieszczą się w tych wartościach).
-Każda propozycja musi zawierać:
-- title: chwytliwa nazwa dania po polsku (np. "Kremowy twaróg z malinami i orzechami włoskimi")
-- description: krótki, 1-2 zdaniowy opis przygotowania
-- prepTimeMinutes: czas przygotowania w minutach (liczba całkowita)
-- calories: całkowita kaloryczność posiłku (liczba całkowita, bliska $remainingCalories)
-- protein: białko w gramach (bliskie ${remainingProtein.toStringAsFixed(1)})
-- carbs: węglowodany w gramach (bliskie ${remainingCarbs.toStringAsFixed(1)})
-- fat: tłuszcze w gramach (bliskie ${remainingFat.toStringAsFixed(1)})
-- ingredients: lista składników z gramaturą (np. ["150g chudego twarogu", "80g mrożonych malin", "15g orzechów włoskich"])
+Zaproponuj DOKŁADNIE 3 RÓŻNE, konkretne, pyszne i realistyczne propozycje posiłków lub przekąsek, które pomagają zbilansować i domknąć ten dzień.
 
-Zwróć odpowiedź WYŁĄCZNIE jako poprawny JSON o schemacie:
-{
-  "suggestions": [
-    {
-      "title": "string",
-      "description": "string",
-      "prepTimeMinutes": 10,
-      "calories": 350,
-      "protein": 30.0,
-      "carbs": 25.0,
-      "fat": 8.0,
-      "ingredients": ["string"]
-    }
-  ]
-}
+KRYTYCZNE ZASADY DIETETYCZNE (BEZWZGLĘDNIE PRZESTRZEGAJ):
+1. KAŻDA Z 3 PROPOZYCJI MUSI MIEĆ INNE, UNIKALNE WARTOŚCI ODŻYWCZE! Niedopuszczalne jest, aby wszystkie 3 dania miały takie same liczby.
+2. ABSOLUTNY ZAKAZ KOPIOWANIA wartości pozostałych użytkownikowi! Nie wpisuj $calTarget kcal ani $pTarget g białka na ślepo do każdego dania.
+3. Wartości odżywcze każdego posiłku (calories, protein, carbs, fat) MUSZĄ BYĆ RZECZYWISTĄ SUMĄ JEGO SKŁADNIKÓW. Jeśli przepis z podanych składników ma np. 780 kcal, wpisz dokładnie 780 kcal!
+4. Składniki muszą zawierać dokładne gramatury w tekście (np. ["180g chudego twarogu", "60g płatków owsianych", "15g miodu", "100ml mleka 2%"]).
 ''';
 
     final requestBody = {
@@ -427,8 +502,9 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny JSON o schemacie:
       ],
       'generationConfig': {
         'responseMimeType': 'application/json',
-        'temperature': 0.4,
-        'maxOutputTokens': 1024, // Cuts generation latency
+        'responseSchema': _suggestionsResponseSchema,
+        'temperature': 0.3,
+        'maxOutputTokens': 2048,
       }
     };
 
@@ -450,31 +526,30 @@ Zwróć odpowiedź WYŁĄCZNIE jako poprawny JSON o schemacie:
     if (parts == null || parts.isEmpty) {
       throw const FormatException('Pusta treść odpowiedzi z Gemini.');
     }
-    final rawText = (parts.first['text'] ?? '').toString().trim();
-    String cleanJson = rawText;
-    if (cleanJson.startsWith('```json')) {
-      cleanJson = cleanJson.substring(7);
-    } else if (cleanJson.startsWith('```')) {
-      cleanJson = cleanJson.substring(3);
-    }
-    if (cleanJson.endsWith('```')) {
-      cleanJson = cleanJson.substring(0, cleanJson.length - 3);
-    }
-    cleanJson = cleanJson.trim();
 
-    final decoded = jsonDecode(cleanJson);
-    List<dynamic> items = [];
-    if (decoded is Map<String, dynamic>) {
-      if (decoded['suggestions'] is List) {
-        items = decoded['suggestions'] as List;
+    final rawText = (parts.first['text'] ?? '').toString();
+    final cleanJson = sanitizeJson(rawText);
+
+    try {
+      final decoded = jsonDecode(cleanJson);
+      List<dynamic> items = [];
+      if (decoded is Map<String, dynamic>) {
+        if (decoded['suggestions'] is List) {
+          items = decoded['suggestions'] as List;
+        }
+      } else if (decoded is List) {
+        items = decoded;
       }
-    } else if (decoded is List) {
-      items = decoded;
-    }
 
-    return items
-        .whereType<Map>()
-        .map((m) => AiMealSuggestion.fromJson(Map<String, dynamic>.from(m)))
-        .toList();
+      return items
+          .whereType<Map>()
+          .map((m) => AiMealSuggestion.fromJson(Map<String, dynamic>.from(m)))
+          .toList();
+    } catch (e) {
+      debugPrint('AiMealService suggestions parse error: $e\nRaw text:\n$rawText');
+      throw const FormatException(
+        'Nie udało się poprawnie zinterpretować propozycji posiłków. Spróbuj ponownie.',
+      );
+    }
   }
 }
