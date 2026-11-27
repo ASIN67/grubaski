@@ -10,11 +10,50 @@ import '../services/hive_service.dart';
 class WeightRepository {
   final HiveService _hiveService;
   static const _uuid = Uuid();
+  static const String deletedWeightEntryIdsKey = 'deleted_weight_entry_ids';
 
   WeightRepository({HiveService? hiveService})
       : _hiveService = hiveService ?? HiveService.instance;
 
   Box<WeightEntry> get _box => _hiveService.weightEntriesBox;
+
+  Box<dynamic>? get _settingsBoxOrNull {
+    if (!Hive.isBoxOpen(HiveService.settingsBoxName)) return null;
+    try {
+      return _hiveService.settingsBox;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _recordDeletedId(String id) async {
+    final settingsBox = _settingsBoxOrNull;
+    if (settingsBox == null || id.isEmpty) return;
+
+    final raw = settingsBox.get(deletedWeightEntryIdsKey);
+    final updated = <String>{
+      if (raw is List) ...raw.map((e) => e.toString()),
+      id,
+    };
+    await settingsBox.put(deletedWeightEntryIdsKey, updated.toList());
+  }
+
+  Future<void> _clearDeletedId(String id) async {
+    final settingsBox = _settingsBoxOrNull;
+    if (settingsBox == null) return;
+
+    final raw = settingsBox.get(deletedWeightEntryIdsKey);
+    if (raw is! List) return;
+
+    final updated = raw.map((e) => e.toString()).toSet();
+    if (!updated.remove(id)) return;
+
+    if (updated.isEmpty) {
+      await settingsBox.delete(deletedWeightEntryIdsKey);
+    } else {
+      await settingsBox.put(deletedWeightEntryIdsKey, updated.toList());
+    }
+  }
 
   /// Retrieves all recorded weight entries, sorted chronologically.
   /// If [ascending] is true, oldest entries appear first; otherwise newest first.
@@ -94,6 +133,7 @@ class WeightRepository {
   /// Saves or updates a [WeightEntry] in local storage using its [WeightEntry.id] as key.
   Future<void> saveWeightEntry(WeightEntry entry) async {
     await _box.put(entry.id, entry);
+    await _clearDeletedId(entry.id);
   }
 
   /// Alias for [saveWeightEntry].
@@ -104,6 +144,7 @@ class WeightRepository {
   /// Deletes a specific weight entry by its [id].
   Future<void> deleteWeightEntry(String id) async {
     await _box.delete(id);
+    await _recordDeletedId(id);
   }
 
   /// Retrieves weight entries recorded within the interval [startDate] through [endDate],

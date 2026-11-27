@@ -113,11 +113,53 @@ class DailyDiarySummary {
 class DiaryRepository {
   final HiveService _hiveService;
   static const _uuid = Uuid();
+  static const String deletedMealEntryIdsKey = 'deleted_meal_entry_ids';
 
   DiaryRepository({HiveService? hiveService})
       : _hiveService = hiveService ?? HiveService.instance;
 
   Box<MealEntry> get _box => _hiveService.mealEntriesBox;
+
+  Box<dynamic>? get _settingsBoxOrNull {
+    if (!Hive.isBoxOpen(HiveService.settingsBoxName)) return null;
+    try {
+      return _hiveService.settingsBox;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _recordDeletedIds(Iterable<String> ids) async {
+    final settingsBox = _settingsBoxOrNull;
+    if (settingsBox == null) return;
+
+    final toRecord = ids.where((id) => id.isNotEmpty).toList();
+    if (toRecord.isEmpty) return;
+
+    final raw = settingsBox.get(deletedMealEntryIdsKey);
+    final updated = <String>{
+      if (raw is List) ...raw.map((e) => e.toString()),
+      ...toRecord,
+    };
+    await settingsBox.put(deletedMealEntryIdsKey, updated.toList());
+  }
+
+  Future<void> _clearDeletedId(String id) async {
+    final settingsBox = _settingsBoxOrNull;
+    if (settingsBox == null) return;
+
+    final raw = settingsBox.get(deletedMealEntryIdsKey);
+    if (raw is! List) return;
+
+    final updated = raw.map((e) => e.toString()).toSet();
+    if (!updated.remove(id)) return;
+
+    if (updated.isEmpty) {
+      await settingsBox.delete(deletedMealEntryIdsKey);
+    } else {
+      await settingsBox.put(deletedMealEntryIdsKey, updated.toList());
+    }
+  }
 
   /// Returns all meal entries in storage.
   List<MealEntry> getAllEntries() {
@@ -179,6 +221,7 @@ class DiaryRepository {
   /// Saves or updates a [MealEntry] in storage using its [MealEntry.id] as key.
   Future<void> saveEntry(MealEntry entry) async {
     await _box.put(entry.id, entry);
+    await _clearDeletedId(entry.id);
   }
 
   /// Alias for [saveEntry].
@@ -213,6 +256,7 @@ class DiaryRepository {
   /// Deletes a specific meal entry by its [id].
   Future<void> deleteEntry(String id) async {
     await _box.delete(id);
+    await _recordDeletedIds([id]);
   }
 
   /// Deletes all entries for a specific meal on a given date.
@@ -223,6 +267,7 @@ class DiaryRepository {
         .toList();
 
     await _box.deleteAll(toDelete);
+    await _recordDeletedIds(toDelete);
   }
 
   /// Deletes all meal entries logged for an entire day.
@@ -233,6 +278,7 @@ class DiaryRepository {
         .toList();
 
     await _box.deleteAll(toDelete);
+    await _recordDeletedIds(toDelete);
   }
 
   /// Copies all entries from [sourceDateKey] into [targetDateKey] with new unique IDs.

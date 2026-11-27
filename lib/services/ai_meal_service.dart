@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/ai_meal_models.dart';
 import 'supabase_service.dart';
 
@@ -116,12 +117,16 @@ class AiMealService {
   };
 
   final Dio _dio;
+  final SupabaseClient? Function() _supabaseClientProvider;
   List<String> _keyPool = [];
   int _keyIndex = 0;
-  bool _isSyncingKeys = false;
+  bool _hasSyncedKeys = false;
+  Future<void>? _syncKeysFuture;
 
-  AiMealService({Dio? dio})
-      : _dio = dio ??
+  AiMealService({
+    Dio? dio,
+    SupabaseClient? Function()? supabaseClientProvider,
+  })  : _dio = dio ??
             Dio(
               BaseOptions(
                 connectTimeout: const Duration(seconds: 10),
@@ -129,12 +134,20 @@ class AiMealService {
                 sendTimeout: const Duration(seconds: 20),
                 headers: {'Content-Type': 'application/json'},
               ),
-            ) {
+            ),
+        _supabaseClientProvider =
+            supabaseClientProvider ?? (() => SupabaseService.instance.client) {
     final def = _resolveDefaultKey();
     if (def.isNotEmpty) {
       _keyPool = [def];
     }
   }
+
+  /// Whether active Gemini API keys have been successfully synced from Supabase.
+  bool get hasSyncedKeys => _hasSyncedKeys;
+
+  /// Whether a Supabase key sync is currently in progress.
+  bool get isSyncingKeys => _syncKeysFuture != null;
 
   /// Initializes the service and syncs active API keys from Supabase.
   Future<void> init() async {
@@ -143,12 +156,18 @@ class AiMealService {
 
   /// Synchronizes active API keys from Supabase table `ai_api_keys`.
   /// Automatically retains the built-in key as a safe fallback.
-  Future<void> syncKeysFromSupabase() async {
-    if (_isSyncingKeys) return;
-    _isSyncingKeys = true;
+  Future<void> syncKeysFromSupabase() {
+    final inFlight = _syncKeysFuture;
+    if (inFlight != null) return inFlight;
 
+    final future = _performSyncKeysFromSupabase();
+    _syncKeysFuture = future;
+    return future;
+  }
+
+  Future<void> _performSyncKeysFromSupabase() async {
     try {
-      final client = SupabaseService.instance.client;
+      final client = _supabaseClientProvider();
       if (client == null) {
         _ensureFallbackKey();
         return;
@@ -168,6 +187,7 @@ class AiMealService {
 
       if (fetchedKeys.isNotEmpty) {
         _keyPool = fetchedKeys;
+        _hasSyncedKeys = true;
         debugPrint(
           'AiMealService: Loaded ${_keyPool.length} active Gemini API key(s) from Supabase.',
         );
@@ -178,7 +198,7 @@ class AiMealService {
       debugPrint('AiMealService: Supabase key sync error ($e). Using default key.');
       _ensureFallbackKey();
     } finally {
-      _isSyncingKeys = false;
+      _syncKeysFuture = null;
     }
   }
 
@@ -276,6 +296,9 @@ class AiMealService {
   /// On 429 (Rate Limit / Quota Exceeded), immediately fails over to the next key with 0ms delay.
   /// On 503 (Overloaded) or timeouts, immediately cascades to the next candidate model.
   Future<dynamic> _postWithCascade(Map<String, dynamic> requestBody) async {
+    if (!_hasSyncedKeys) {
+      await syncKeysFromSupabase();
+    }
     _ensureFallbackKey();
     final availableKeys = _keyPool.where((k) => k.trim().isNotEmpty).toList();
     if (availableKeys.isEmpty) {

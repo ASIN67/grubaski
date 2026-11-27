@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:grubasek/models/ai_meal_models.dart';
 import 'package:grubasek/services/ai_meal_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide Headers;
 
 class MockAdapter implements HttpClientAdapter {
   final Map<String, dynamic> responseData;
@@ -263,7 +265,241 @@ void main() {
       expect(suggestions.first.prepTimeMinutes, 5);
       expect(suggestions.first.calories, 320);
     });
+
+    test(
+        'awaits syncKeysFromSupabase before first request when called immediately without init()',
+        () async {
+      final requestedUrls = <String>[];
+      final dio = Dio();
+      dio.httpClientAdapter = _FailoverAdapter(
+        onFetch: (options) {
+          requestedUrls.add(options.uri.toString());
+          return _validEstimationResponse('Jabłko');
+        },
+      );
+
+      final fakeClient = _FakeSupabaseClient(
+        onQueryKeys: () async => [
+          {'api_key': 'supa_key_1'},
+          {'api_key': 'supa_key_2'},
+        ],
+      );
+
+      final service = AiMealService(
+        dio: dio,
+        supabaseClientProvider: () => fakeClient,
+      );
+      expect(service.hasSyncedKeys, isFalse);
+
+      final result = await service.estimateMeal(textPrompt: 'Jabłko');
+
+      expect(result.mealName, 'Jabłko');
+      expect(service.hasSyncedKeys, isTrue);
+      expect(service.activeKeys, equals(['supa_key_1', 'supa_key_2']));
+      expect(fakeClient.queryCount, equals(1));
+      expect(requestedUrls.single, contains('key=supa_key_1'));
+    });
+
+    test(
+        'joins in-flight init() sync instead of racing with fallback key and supports 429 failover across synced keys',
+        () async {
+      final gate = Completer<List<Map<String, dynamic>>>();
+      final requestedKeys = <String>[];
+
+      final dio = Dio();
+      dio.httpClientAdapter = _FailoverAdapter(
+        onFetch: (options) {
+          final key = options.uri.queryParameters['key'] ?? '';
+          requestedKeys.add(key);
+          if (key == 'delayed_key_1') {
+            return ResponseBody.fromString(
+              jsonEncode({'error': {'code': 429, 'message': 'Quota'}}),
+              429,
+              headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+            );
+          }
+          return _validEstimationResponse('Banan');
+        },
+      );
+
+      final fakeClient = _FakeSupabaseClient(
+        onQueryKeys: () => gate.future,
+      );
+
+      final service = AiMealService(
+        dio: dio,
+        supabaseClientProvider: () => fakeClient,
+      );
+
+      // Mimic aiMealServiceProvider calling init() without awaiting
+      final initFuture = service.init();
+      // Immediate AI call before init() finishes
+      final estimateFuture = service.estimateMeal(textPrompt: 'Banan');
+
+      expect(requestedKeys, isEmpty);
+
+      gate.complete([
+        {'api_key': 'delayed_key_1'},
+        {'api_key': 'delayed_key_2'},
+      ]);
+
+      final result = await estimateFuture;
+      await initFuture;
+
+      expect(result.mealName, 'Banan');
+      expect(fakeClient.queryCount, equals(1));
+      expect(service.hasSyncedKeys, isTrue);
+      expect(requestedKeys, equals(['delayed_key_1', 'delayed_key_2']));
+
+      // Subsequent call does not re-query Supabase
+      await service.estimateMeal(textPrompt: 'Banan');
+      expect(fakeClient.queryCount, equals(1));
+    });
+
+    test('handles null Supabase client and sync errors gracefully without throwing',
+        () async {
+      final dio = Dio();
+      dio.httpClientAdapter = _FailoverAdapter(
+        onFetch: (_) => _validEstimationResponse('Gruszka'),
+      );
+
+      final offlineService = AiMealService(
+        dio: dio,
+        supabaseClientProvider: () => null,
+      );
+      final offlineResult = await offlineService.estimateMeal(textPrompt: 'Gruszka');
+      expect(offlineResult.mealName, 'Gruszka');
+      expect(offlineService.hasSyncedKeys, isFalse);
+
+      final failingClient = _FakeSupabaseClient(
+        onQueryKeys: () async => throw Exception('Supabase unreachable'),
+      );
+      final errorService = AiMealService(
+        dio: dio,
+        supabaseClientProvider: () => failingClient,
+      );
+      final errorResult = await errorService.estimateMeal(textPrompt: 'Gruszka');
+      expect(errorResult.mealName, 'Gruszka');
+      expect(errorService.hasSyncedKeys, isFalse);
+    });
   });
+}
+
+ResponseBody _validEstimationResponse(String mealName) {
+  return ResponseBody.fromString(
+    jsonEncode({
+      'candidates': [
+        {
+          'content': {
+            'parts': [
+              {
+                'text': jsonEncode({
+                  'mealName': mealName,
+                  'calories': 100,
+                  'proteinGrams': 1.0,
+                  'carbsGrams': 24.0,
+                  'fatGrams': 0.5,
+                  'estimatedWeightGrams': 180,
+                  'confidence': 'Wysoka',
+                  'adviceOrNotes': 'OK',
+                  'ingredients': [],
+                }),
+              }
+            ],
+          },
+        }
+      ],
+    }),
+    200,
+    headers: {Headers.contentTypeHeader: [Headers.jsonContentType]},
+  );
+}
+
+class _FakeSupabaseClient extends Fake implements SupabaseClient {
+  final Future<List<Map<String, dynamic>>> Function() onQueryKeys;
+  int queryCount = 0;
+
+  _FakeSupabaseClient({required this.onQueryKeys});
+
+  @override
+  SupabaseQueryBuilder from(String table) {
+    return _FakeAiKeysQueryBuilder(
+      onExecute: () {
+        queryCount++;
+        return onQueryKeys();
+      },
+    );
+  }
+}
+
+class _FakeAiKeysQueryBuilder extends Fake implements SupabaseQueryBuilder {
+  final Future<List<Map<String, dynamic>>> Function() onExecute;
+
+  _FakeAiKeysQueryBuilder({required this.onExecute});
+
+  @override
+  PostgrestFilterBuilder<PostgrestList> select([String columns = '*']) {
+    return _FakeAiKeysFilterBuilder(onExecute: onExecute);
+  }
+}
+
+class _FakeAiKeysFilterBuilder extends Fake
+    implements PostgrestFilterBuilder<PostgrestList> {
+  final Future<List<Map<String, dynamic>>> Function() onExecute;
+
+  _FakeAiKeysFilterBuilder({required this.onExecute});
+
+  @override
+  PostgrestFilterBuilder<PostgrestList> eq(String column, Object value) => this;
+
+  @override
+  PostgrestTransformBuilder<PostgrestList> order(
+    String column, {
+    bool ascending = false,
+    bool nullsFirst = false,
+    String? referencedTable,
+  }) {
+    return _FakeAiKeysTransformBuilder(onExecute: onExecute);
+  }
+}
+
+class _FakeAiKeysTransformBuilder extends Fake
+    implements PostgrestTransformBuilder<PostgrestList> {
+  final Future<List<Map<String, dynamic>>> Function() onExecute;
+
+  _FakeAiKeysTransformBuilder({required this.onExecute});
+
+  @override
+  Future<R> then<R>(
+    FutureOr<R> Function(PostgrestList value) onValue, {
+    Function? onError,
+  }) {
+    return onExecute().then(onValue, onError: onError);
+  }
+
+  @override
+  Future<PostgrestList> catchError(
+    Function onError, {
+    bool Function(Object error)? test,
+  }) {
+    return onExecute().catchError(onError, test: test);
+  }
+
+  @override
+  Future<PostgrestList> whenComplete(FutureOr<void> Function() action) {
+    return onExecute().whenComplete(action);
+  }
+
+  @override
+  Future<PostgrestList> timeout(
+    Duration timeLimit, {
+    FutureOr<PostgrestList> Function()? onTimeout,
+  }) {
+    return onExecute().timeout(timeLimit, onTimeout: onTimeout);
+  }
+
+  @override
+  Stream<PostgrestList> asStream() => onExecute().asStream();
 }
 
 class _FailoverAdapter implements HttpClientAdapter {
