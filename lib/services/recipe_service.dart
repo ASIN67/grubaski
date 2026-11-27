@@ -14,6 +14,7 @@ class RecipeService {
 
   static const String _recipesCacheKey = 'cached_community_recipes_json';
   static const String _tableName = 'public_recipes';
+  static const int _networkPageSize = 100;
 
   SupabaseClient? get _supabaseClient {
     if (!SupabaseService.instance.isInitialized) return null;
@@ -21,35 +22,113 @@ class RecipeService {
   }
 
   /// Fetches recipes from Supabase with optional [category] filter and [searchQuery].
-  /// Falls back to offline Hive cache if network is unavailable.
+  /// Applies server-side filtering and a `.limit(100)` cap, refreshes the local Hive
+  /// cache only on unfiltered fetches so filtered queries never overwrite the full
+  /// cache, and merges/falls back safely to offline cache.
   Future<List<CommunityRecipe>> getRecipes({
     String? category,
     String? searchQuery,
   }) async {
-    List<CommunityRecipe> allRecipes = [];
+    final cleanCategory = category?.trim();
+    final hasCategoryFilter = cleanCategory != null &&
+        cleanCategory.isNotEmpty &&
+        cleanCategory.toLowerCase() != 'wszystkie';
+    final cleanSearch = searchQuery?.trim() ?? '';
+    final hasSearchFilter = cleanSearch.isNotEmpty;
+    final isFiltered = hasCategoryFilter || hasSearchFilter;
+
+    List<CommunityRecipe> allRecipes;
 
     final client = _supabaseClient;
     if (client != null) {
       try {
         var query = client.from(_tableName).select();
+        if (hasCategoryFilter) {
+          query = query.ilike('category', _escapeIlikeLiteral(cleanCategory));
+        }
+        if (hasSearchFilter) {
+          final pattern = _buildIlikePattern(cleanSearch);
+          if (pattern.isNotEmpty) {
+            query = query.or(
+              'title.ilike.%$pattern%,description.ilike.%$pattern%',
+            );
+          }
+        }
 
-        final res = await query.order('created_at', ascending: false);
-        allRecipes = res
-            .map((map) => CommunityRecipe.fromMap(map))
-            .toList();
+        final res = await query
+            .order('created_at', ascending: false)
+            .limit(_networkPageSize);
+        final remoteRecipes =
+            res.map((map) => CommunityRecipe.fromMap(map)).toList();
 
-        // Update local cache
-        await _cacheRecipesLocally(allRecipes);
+        if (!isFiltered) {
+          // Keep any offline-created local recipes not yet in Supabase, and update full cache.
+          final localOnly = _loadLocalOnlyRecipesFromCache(remoteRecipes);
+          allRecipes = [...localOnly, ...remoteRecipes];
+          await _cacheRecipesLocally(allRecipes);
+        } else {
+          // Never overwrite the full offline cache with a filtered subset; merge with
+          // local cache so offline entries and ingredient-only matches are preserved.
+          allRecipes = _mergeRecipes(remoteRecipes, _loadRecipesFromCache());
+        }
       } catch (e) {
-        debugPrint('RecipeService: Network fetch failed ($e). Loading local cache.');
+        debugPrint(
+            'RecipeService: Network fetch failed ($e). Loading local cache.');
         allRecipes = _loadRecipesFromCache();
       }
     } else {
       allRecipes = _loadRecipesFromCache();
     }
 
-    // Apply in-memory filtering
-    return allRecipes.where((r) {
+    return _filterRecipesInMemory(
+      allRecipes,
+      category: hasCategoryFilter ? cleanCategory : null,
+      searchQuery: hasSearchFilter ? cleanSearch : null,
+    );
+  }
+
+  static String _escapeIlikeLiteral(String value) {
+    return value
+        .replaceAll('\\', '\\\\')
+        .replaceAll('%', '\\%')
+        .replaceAll('_', '\\_');
+  }
+
+  static String _buildIlikePattern(String value) {
+    return value
+        .replaceAll(RegExp(r'[%_,()\\"]'), ' ')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), '%');
+  }
+
+  List<CommunityRecipe> _loadLocalOnlyRecipesFromCache(
+    List<CommunityRecipe> remoteRecipes,
+  ) {
+    final remoteIds = remoteRecipes.map((r) => r.id).toSet();
+    return _loadRawCachedRecipes()
+        .where((r) => r.id.startsWith('local_') && !remoteIds.contains(r.id))
+        .toList();
+  }
+
+  static List<CommunityRecipe> _mergeRecipes(
+    List<CommunityRecipe> primary,
+    List<CommunityRecipe> secondary,
+  ) {
+    final byId = <String, CommunityRecipe>{
+      for (final r in primary) r.id: r,
+    };
+    for (final r in secondary) {
+      byId.putIfAbsent(r.id, () => r);
+    }
+    return byId.values.toList();
+  }
+
+  static List<CommunityRecipe> _filterRecipesInMemory(
+    List<CommunityRecipe> recipes, {
+    String? category,
+    String? searchQuery,
+  }) {
+    return recipes.where((r) {
       if (category != null &&
           category.isNotEmpty &&
           category.toLowerCase() != 'wszystkie') {
@@ -62,8 +141,8 @@ class RecipeService {
         final q = searchQuery.toLowerCase().trim();
         final matchTitle = r.title.toLowerCase().contains(q);
         final matchDesc = r.description.toLowerCase().contains(q);
-        final matchIng = r.ingredients
-            .any((ing) => ing.name.toLowerCase().contains(q));
+        final matchIng =
+            r.ingredients.any((ing) => ing.name.toLowerCase().contains(q));
         if (!matchTitle && !matchDesc && !matchIng) {
           return false;
         }
@@ -180,27 +259,33 @@ class RecipeService {
     }
   }
 
-  List<CommunityRecipe> _loadRecipesFromCache() {
+  List<CommunityRecipe> _loadRawCachedRecipes() {
     try {
       final raw = HiveService.instance.settingsBox.get(_recipesCacheKey);
       if (raw is String && raw.isNotEmpty) {
         final decoded = jsonDecode(raw);
         if (decoded is List) {
-          final cached = decoded
+          return decoded
               .whereType<Map>()
               .map((m) => CommunityRecipe.fromMap(Map<String, dynamic>.from(m)))
               .toList();
-          if (cached.isNotEmpty) {
-            final existingTitles = cached.map((r) => r.title.toLowerCase().trim()).toSet();
-            final missingDefaults = defaultRecipes
-                .where((dr) => !existingTitles.contains(dr.title.toLowerCase().trim()))
-                .toList();
-            return [...cached, ...missingDefaults];
-          }
         }
       }
     } catch (e) {
       debugPrint('RecipeService: Cache read failed ($e)');
+    }
+    return const [];
+  }
+
+  List<CommunityRecipe> _loadRecipesFromCache() {
+    final cached = _loadRawCachedRecipes();
+    if (cached.isNotEmpty) {
+      final existingTitles =
+          cached.map((r) => r.title.toLowerCase().trim()).toSet();
+      final missingDefaults = defaultRecipes
+          .where((dr) => !existingTitles.contains(dr.title.toLowerCase().trim()))
+          .toList();
+      return [...cached, ...missingDefaults];
     }
     return List.from(defaultRecipes);
   }

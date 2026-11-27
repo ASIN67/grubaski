@@ -27,16 +27,24 @@ class ProductRepository {
 
   Box<FoodProduct> get _box => _hiveService.foodProductsBox;
   List<_IndexedProduct>? _cachedIndex;
+  bool _indexDirty = true;
+  int _cachedBoxLength = -1;
+
+  @visibleForTesting
+  int indexBuildCount = 0;
 
   void _invalidateIndex() {
+    _indexDirty = true;
     _cachedIndex = null;
   }
 
   List<_IndexedProduct> _getIndex() {
     final cached = _cachedIndex;
-    if (cached != null && cached.length == _box.length) {
+    final boxLength = _box.length;
+    if (!_indexDirty && cached != null && _cachedBoxLength == boxLength) {
       return cached;
     }
+    indexBuildCount++;
     final index = _box.values
         .where((p) => !p.isRecipe && !p.id.startsWith('recipe_'))
         .map((p) {
@@ -55,6 +63,8 @@ class ProductRepository {
         })
         .toList(growable: false);
     _cachedIndex = index;
+    _cachedBoxLength = boxLength;
+    _indexDirty = false;
     return index;
   }
 

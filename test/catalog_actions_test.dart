@@ -6,9 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:grubasek/models/models.dart';
 import 'package:grubasek/providers/diary_provider.dart';
+import 'package:grubasek/providers/product_search_provider.dart';
 import 'package:grubasek/screens/add_portion_sheet.dart';
 import 'package:grubasek/screens/add_product_screen.dart';
-import 'package:grubasek/screens/create_recipe_screen.dart';
 import 'package:grubasek/services/hive_service.dart';
 import 'package:grubasek/utils/app_theme.dart';
 import 'package:hive/hive.dart';
@@ -151,6 +151,23 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(state.dispose);
+
+    final recipe = (await tester.runAsync(() async {
+      final created = await state.read(productRepositoryProvider).createRecipe(
+        name: 'Moja owsianka',
+        ingredients: const [
+          RecipeIngredient(product: oats, grams: 50),
+          RecipeIngredient(product: banana, grams: 100),
+        ],
+      );
+      await hive.foodProductsBox.flush();
+      return created;
+    }))!;
+
+    expect(recipe.recipeIngredients, hasLength(2));
+    expect(recipe.caloriesPer100g, 275);
+    expect(recipe.fiberPer100g, 5);
+
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: state,
@@ -164,21 +181,13 @@ void main() {
               body: Center(
                 child: ElevatedButton(
                   onPressed: () async {
-                    final recipe = await Navigator.push<FoodProduct>(
+                    await AddPortionSheet.show(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const CreateRecipeScreen(),
-                      ),
+                      product: recipe,
+                      initialMealType: MealType.breakfast,
                     );
-                    if (recipe != null && context.mounted) {
-                      await AddPortionSheet.show(
-                        context,
-                        product: recipe,
-                        initialMealType: MealType.breakfast,
-                      );
-                    }
                   },
-                  child: const Text('Start Recipe'),
+                  child: const Text('Log Recipe'),
                 ),
               ),
             ),
@@ -187,41 +196,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Start Recipe'));
+    await tester.tap(find.text('Log Recipe'));
     await tester.pumpAndSettle();
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Nazwa potrawy'),
-      'Moja owsianka',
-    );
 
-    Future<void> addIngredient(FoodProduct product, String amount) async {
-      await tester.tap(find.text('Dodaj składnik'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(product.name));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-          find.widgetWithText(TextFormField, 'Ilość'), amount);
-      await tester.tap(find.widgetWithText(FilledButton, 'Zatwierdź'));
-      await tester.pumpAndSettle();
-    }
-
-    await addIngredient(oats, '50');
-    await addIngredient(banana, '100');
     expect(find.text('275 kcal'), findsOneWidget);
-
-    final saveRecipe = find.widgetWithText(FilledButton, 'Zapisz przepis');
-    await tester.ensureVisible(saveRecipe);
-    await tester.runAsync(() async {
-      await tester.tap(saveRecipe);
-      await hive.foodProductsBox.flush();
-    });
-    await tester.pumpAndSettle();
-
-    final recipe =
-        hive.foodProductsBox.values.singleWhere((product) => product.isRecipe);
-    expect(recipe.recipeIngredients, hasLength(2));
-    expect(recipe.caloriesPer100g, 275);
-    expect(recipe.fiberPer100g, 5);
 
     await tester.tap(find.text('½ porcji'));
     await tester.pumpAndSettle();

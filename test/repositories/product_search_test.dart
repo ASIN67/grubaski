@@ -519,4 +519,114 @@ void main() {
       expect(avgMs, lessThan(60.0));
     });
   });
+
+  group('ProductRepository._getIndex() caching & invalidation', () {
+    test('does not rebuild index across searches when recipes exist in box',
+        () async {
+      const oats = FoodProduct(
+        id: 'idx_oats',
+        name: 'Płatki owsiane',
+        caloriesPer100g: 370,
+        proteinPer100g: 13,
+        carbsPer100g: 60,
+        fatPer100g: 7,
+      );
+      const banana = FoodProduct(
+        id: 'idx_banana',
+        name: 'Banan',
+        caloriesPer100g: 89,
+        proteinPer100g: 1.1,
+        carbsPer100g: 23,
+        fatPer100g: 0.3,
+      );
+      final localRecipe = FoodProduct(
+        id: 'local_rec_1',
+        name: 'Owsianka domowa',
+        caloriesPer100g: 200,
+        proteinPer100g: 6,
+        carbsPer100g: 35,
+        fatPer100g: 3,
+        isCustom: true,
+        recipeIngredients: const [RecipeIngredient(product: oats, grams: 50)],
+      );
+      const communityRecipe = FoodProduct(
+        id: 'recipe_comm_1',
+        name: '🍲 Koktajl bananowy',
+        caloriesPer100g: 150,
+        proteinPer100g: 5,
+        carbsPer100g: 25,
+        fatPer100g: 2,
+        isCustom: true,
+      );
+
+      await repository.saveProducts([oats, banana, localRecipe, communityRecipe]);
+      repository.indexBuildCount = 0;
+
+      // First search builds the index once (even though box contains 2 recipes + 2 products)
+      expect(repository.searchLocalProducts('p').length, equals(1));
+      expect(repository.indexBuildCount, equals(1));
+
+      // Subsequent searches must hit cached index without rebuilding
+      expect(repository.searchLocalProducts('pl').first.id, equals('idx_oats'));
+      expect(repository.searchLocalProducts('pla').first.id, equals('idx_oats'));
+      expect(repository.searchLocalProducts('ban').first.id, equals('idx_banana'));
+      expect(repository.indexBuildCount, equals(1));
+    });
+
+    test('invalidates index on saveProduct, saveProducts, toggleFavorite, cacheRemoteProducts, and deleteProduct',
+        () async {
+      const itemA = FoodProduct(
+        id: 'inv_a',
+        name: 'Jogurt grecki A',
+        caloriesPer100g: 100,
+        proteinPer100g: 10,
+        carbsPer100g: 4,
+        fatPer100g: 5,
+      );
+      const itemB = FoodProduct(
+        id: 'inv_b',
+        name: 'Jogurt grecki B',
+        caloriesPer100g: 100,
+        proteinPer100g: 10,
+        carbsPer100g: 4,
+        fatPer100g: 5,
+      );
+
+      await repository.saveProduct(itemA);
+      repository.indexBuildCount = 0;
+      expect(repository.searchLocalProducts('jogurt').map((p) => p.id), ['inv_a']);
+      expect(repository.indexBuildCount, equals(1));
+
+      // saveProducts invalidates index
+      await repository.saveProducts([itemB]);
+      expect(repository.searchLocalProducts('jogurt').length, equals(2));
+      expect(repository.indexBuildCount, equals(2));
+
+      // toggleFavorite invalidates index even though box.length stays identical
+      await repository.toggleFavorite(itemB);
+      final afterFav = repository.searchLocalProducts('jogurt');
+      expect(afterFav.first.id, equals('inv_b'));
+      expect(repository.indexBuildCount, equals(3));
+
+      // cacheRemoteProducts invalidates index when adding new products
+      const remoteItem = FoodProduct(
+        id: 'inv_remote',
+        name: 'Jogurt grecki C',
+        barcode: '5901112223334',
+        caloriesPer100g: 95,
+        proteinPer100g: 9,
+        carbsPer100g: 4,
+        fatPer100g: 4,
+      );
+      await repository.cacheRemoteProducts([remoteItem]);
+      expect(repository.searchLocalProducts('jogurt').length, equals(3));
+      expect(repository.indexBuildCount, equals(4));
+
+      // deleteProduct invalidates index
+      await repository.deleteProduct('inv_a');
+      expect(repository.searchLocalProducts('jogurt').map((p) => p.id),
+          isNot(contains('inv_a')));
+      expect(repository.indexBuildCount, equals(5));
+    });
+  });
 }
