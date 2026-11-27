@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   build-apk:
+    if: ${{ github.event_name != 'push' || !contains(github.event.head_commit.message, '[pwa-only]') }}
     name: Kompilacja pliku APK (Android)
     runs-on: ubuntu-latest
 
