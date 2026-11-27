@@ -19,6 +19,29 @@ import 'quick_add_sheet.dart';
 class DiaryScreen extends ConsumerWidget {
   const DiaryScreen({super.key});
 
+  static (int, double, double, int, bool)? _lastWidgetSyncPayload;
+
+  void _openAiMacroFinisher(
+    BuildContext context, {
+    required double caloriesGoal,
+    required double proteinGoal,
+    required double carbsGoal,
+    required double fatGoal,
+    required DiaryState diaryState,
+  }) {
+    final remCal = (caloriesGoal - diaryState.totalCalories).round();
+    final remP = (proteinGoal - diaryState.totalProtein).clamp(0.0, 300.0);
+    final remC = (carbsGoal - diaryState.totalCarbs).clamp(0.0, 500.0);
+    final remF = (fatGoal - diaryState.totalFat).clamp(0.0, 200.0);
+    AiMacroFinisherSheet.show(
+      context,
+      remainingCalories: remCal > 0 ? remCal : 300,
+      remainingProtein: remP,
+      remainingCarbs: remC,
+      remainingFat: remF,
+    );
+  }
+
   void _navigateToAddProduct(
     BuildContext context, {
     required MealType mealType,
@@ -210,16 +233,28 @@ class DiaryScreen extends ConsumerWidget {
     final int waterGoal = userProfile?.waterGoalMl ?? 2500;
 
     // Keep Android Home Screen Widget in sync with today's totals
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (isToday) {
       final remCal = (caloriesGoal - diaryState.totalCalories).round();
-      WidgetUpdateService.instance.updateWidgetData(
-        remainingCalories: remCal,
-        proteinConsumed: diaryState.totalProtein,
-        carbsConsumed: diaryState.totalCarbs,
-        waterConsumedMl: waterLog.amountMl,
-        isOverCalories: remCal < 0,
+      final payload = (
+        remCal,
+        diaryState.totalProtein,
+        diaryState.totalCarbs,
+        waterLog.amountMl,
+        remCal < 0,
       );
-    });
+      if (_lastWidgetSyncPayload != payload) {
+        _lastWidgetSyncPayload = payload;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          WidgetUpdateService.instance.updateWidgetData(
+            remainingCalories: payload.$1,
+            proteinConsumed: payload.$2,
+            carbsConsumed: payload.$3,
+            waterConsumedMl: payload.$4,
+            isOverCalories: payload.$5,
+          );
+        });
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -290,6 +325,14 @@ class DiaryScreen extends ConsumerWidget {
               carbsGoal: carbsGoal,
               fatConsumed: diaryState.totalFat,
               fatGoal: fatGoal,
+              onAskAiPressed: () => _openAiMacroFinisher(
+                context,
+                caloriesGoal: caloriesGoal,
+                proteinGoal: proteinGoal,
+                carbsGoal: carbsGoal,
+                fatGoal: fatGoal,
+                diaryState: diaryState,
+              ),
             ),
 
             const SizedBox(height: 16),
@@ -351,19 +394,14 @@ class DiaryScreen extends ConsumerWidget {
                     message: 'AI: Zaproponuj posiłek na brakujące kalorie i makroskładniki',
                     child: InkWell(
                       borderRadius: BorderRadius.circular(8),
-                      onTap: () {
-                        final remCal = (caloriesGoal - diaryState.totalCalories).round();
-                        final remP = (proteinGoal - diaryState.totalProtein).clamp(0.0, 300.0);
-                        final remC = (carbsGoal - diaryState.totalCarbs).clamp(0.0, 500.0);
-                        final remF = (fatGoal - diaryState.totalFat).clamp(0.0, 200.0);
-                        AiMacroFinisherSheet.show(
-                          context,
-                          remainingCalories: remCal > 0 ? remCal : 300,
-                          remainingProtein: remP,
-                          remainingCarbs: remC,
-                          remainingFat: remF,
-                        );
-                      },
+                      onTap: () => _openAiMacroFinisher(
+                        context,
+                        caloriesGoal: caloriesGoal,
+                        proteinGoal: proteinGoal,
+                        carbsGoal: carbsGoal,
+                        fatGoal: fatGoal,
+                        diaryState: diaryState,
+                      ),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                         decoration: BoxDecoration(

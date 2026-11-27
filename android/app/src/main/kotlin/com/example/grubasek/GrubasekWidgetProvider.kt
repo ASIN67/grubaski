@@ -19,12 +19,13 @@ class GrubasekWidgetProvider : AppWidgetProvider() {
     companion object {
         fun updateAppWidget(context: Context, appWidgetManager: AppWidgetManager, appWidgetId: Int) {
             val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            val allPrefs = prefs.all
 
-            val remainingKcal = prefs.getInt("flutter.widget_remaining_kcal", 1450)
-            val proteinText = prefs.getString("flutter.widget_protein", "85g") ?: "85g"
-            val carbsText = prefs.getString("flutter.widget_carbs", "140g") ?: "140g"
-            val waterText = prefs.getString("flutter.widget_water", "1.5 L") ?: "1.5 L"
-            val isOver = prefs.getBoolean("flutter.widget_is_over", false)
+            val remainingKcal = (allPrefs["flutter.widget_remaining_kcal"] as? Number)?.toInt() ?: 1450
+            val proteinText = (allPrefs["flutter.widget_protein"] as? String) ?: "85g"
+            val carbsText = (allPrefs["flutter.widget_carbs"] as? String) ?: "140g"
+            val waterText = (allPrefs["flutter.widget_water"] as? String) ?: "1.5 L"
+            val isOver = (allPrefs["flutter.widget_is_over"] as? Boolean) ?: false
 
             val views = RemoteViews(context.packageName, R.layout.widget_grubasek)
 
