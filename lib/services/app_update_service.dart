@@ -41,22 +41,29 @@ class AppUpdateService {
   static const MethodChannel _installerChannel =
       MethodChannel('com.example.grubasek/apk_installer');
 
+  // Keep in sync with pubspec.yaml baseline so offline/test fallbacks never under-report the app version.
+  static const String _fallbackVersion = '1.0.9';
+  static const int _fallbackBuildNumber = 10;
+
   AppUpdateService({SupabaseService? supabaseService})
       : _supabaseService = supabaseService ?? SupabaseService.instance;
 
   /// Retrieves local platform version details using [PackageInfo].
   ///
-  /// Falls back to safe defaults ('1.0.2', 3) in test environments or on unsupported platforms.
+  /// Falls back to safe defaults ([_fallbackVersion], [_fallbackBuildNumber]) in test environments
+  /// or on unsupported platforms.
   Future<({String version, int buildNumber})> getCurrentVersionInfo() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
-      final version =
-          packageInfo.version.isNotEmpty ? packageInfo.version : '1.0.6';
-      final buildNumber = int.tryParse(packageInfo.buildNumber) ?? 7;
+      final version = packageInfo.version.isNotEmpty
+          ? packageInfo.version
+          : _fallbackVersion;
+      final buildNumber =
+          int.tryParse(packageInfo.buildNumber) ?? _fallbackBuildNumber;
       return (version: version, buildNumber: buildNumber);
     } catch (e) {
       debugPrint('AppUpdateService: PackageInfo.fromPlatform fallback ($e)');
-      return (version: '1.0.6', buildNumber: 7);
+      return (version: _fallbackVersion, buildNumber: _fallbackBuildNumber);
     }
   }
 
@@ -90,8 +97,8 @@ class AppUpdateService {
     String? currentVersionOverride,
     int? currentBuildOverride,
   }) async {
-    String currentVersion = currentVersionOverride ?? '1.0.3';
-    int currentBuildNumber = currentBuildOverride ?? 4;
+    String currentVersion = currentVersionOverride ?? _fallbackVersion;
+    int currentBuildNumber = currentBuildOverride ?? _fallbackBuildNumber;
 
     if (currentVersionOverride == null || currentBuildOverride == null) {
       final info = await getCurrentVersionInfo();

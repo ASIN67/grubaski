@@ -71,6 +71,89 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Rejestracja wydania w Supabase (opcjonalnie)
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        shell: bash
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          DOWNLOAD_URL: "https://github.com/${{ github.repository }}/releases/download/latest/grubasek.apk"
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::notice::Pominięto aktualizację tabeli app_releases w Supabase. Ustaw sekret SUPABASE_SERVICE_ROLE_KEY w GitHub Secrets, aby automatycznie publikować powiadomienia OTA o nowej wersji Android APK."
+            exit 0
+          fi
+
+          SUPABASE_URL="${SUPABASE_URL:-https://wyrgagwstoscxhstyzmf.supabase.co}"
+          VERSION_RAW=$(awk '$1 == "version:" { print $2; exit }' pubspec.yaml | tr -d "\"'")
+          VERSION_NAME="${VERSION_RAW%%+*}"
+          if [[ "$VERSION_RAW" == *"+"* ]]; then
+            VERSION_CODE="${VERSION_RAW#*+}"
+          else
+            VERSION_CODE="1"
+          fi
+
+          if [ -z "$VERSION_NAME" ] || ! [[ "$VERSION_CODE" =~ ^[0-9]+$ ]]; then
+            echo "::error::Nie udało się odczytać poprawnej wersji z pubspec.yaml ($VERSION_RAW)."
+            exit 1
+          fi
+
+          PUBLISHED_AT=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          PAYLOAD=$(jq -n \
+            --arg platform "android" \
+            --arg version_name "$VERSION_NAME" \
+            --argjson version_code "$VERSION_CODE" \
+            --arg download_url "$DOWNLOAD_URL" \
+            --arg changelog "Automatyczna kompilacja Android APK (${VERSION_NAME}+${VERSION_CODE})" \
+            --arg published_at "$PUBLISHED_AT" \
+            '{
+              platform: $platform,
+              version_name: $version_name,
+              version_code: $version_code,
+              download_url: $download_url,
+              changelog: $changelog,
+              is_mandatory: false,
+              is_active: true,
+              published_at: $published_at
+            }')
+
+          AUTH_HEADERS=(
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY"
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"
+            -H "Content-Type: application/json"
+          )
+
+          RESPONSE=$(curl -sS -w "\n%{http_code}" -X PATCH \
+            "${SUPABASE_URL}/rest/v1/app_releases?platform=eq.android&version_code=eq.${VERSION_CODE}" \
+            "${AUTH_HEADERS[@]}" \
+            -H "Prefer: return=representation" \
+            -d "$PAYLOAD")
+          HTTP_CODE=$(printf '%s\n' "$RESPONSE" | tail -n1)
+          BODY=$(printf '%s\n' "$RESPONSE" | sed '$d')
+
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
+            echo "::error::Błąd aktualizacji app_releases w Supabase (HTTP $HTTP_CODE): $BODY"
+            exit 1
+          fi
+
+          if [ "$BODY" = "[]" ] || [ -z "$BODY" ]; then
+            INSERT_RESPONSE=$(curl -sS -w "\n%{http_code}" -X POST \
+              "${SUPABASE_URL}/rest/v1/app_releases" \
+              "${AUTH_HEADERS[@]}" \
+              -H "Prefer: return=representation" \
+              -d "$PAYLOAD")
+            INSERT_CODE=$(printf '%s\n' "$INSERT_RESPONSE" | tail -n1)
+            INSERT_BODY=$(printf '%s\n' "$INSERT_RESPONSE" | sed '$d')
+
+            if [ "$INSERT_CODE" -lt 200 ] || [ "$INSERT_CODE" -ge 300 ]; then
+              echo "::error::Błąd dodawania rekordu do app_releases w Supabase (HTTP $INSERT_CODE): $INSERT_BODY"
+              exit 1
+            fi
+            echo "Dodano nowe wydanie Android ${VERSION_NAME}+${VERSION_CODE} do Supabase app_releases."
+          else
+            echo "Zaktualizowano istniejące wydanie Android ${VERSION_NAME}+${VERSION_CODE} w Supabase app_releases."
+          fi
+
   build-web:
     name: Kompilacja wersji Web (PWA)
     runs-on: ubuntu-latest
