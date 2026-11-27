@@ -20,7 +20,42 @@ Future<void> main() async {
   };
 
   ErrorWidget.builder = (FlutterErrorDetails details) {
-    return const SizedBox.shrink();
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Container(
+        margin: const EdgeInsets.all(8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A161B),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: const Color(0xFFFB7185).withOpacity(0.5),
+          ),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              color: Color(0xFFFB7185),
+              size: 18,
+            ),
+            SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                'Wystąpił błąd wyświetlania elementu',
+                style: TextStyle(
+                  color: Color(0xFFF5F3FA),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   };
 
   // 1. Initialize Polish locale date formatting for intl

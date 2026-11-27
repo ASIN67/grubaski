@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
@@ -33,9 +32,11 @@ class _AdaptiveCoachViewState extends ConsumerState<AdaptiveCoachView> {
 
     // Gather weight entries from the past 14 days
     final now = DateTime.now();
+    final today = DateUtils.dateOnly(now);
     final recentWeights = weightEntries
-        .where((w) => now.difference(w.date).inDays <= 14)
-        .toList();
+        .where((w) => today.difference(DateUtils.dateOnly(w.date)).inDays <= 14)
+        .toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
 
     // Compute average intake over the past 7-14 days
     double totalCalories = 0;
@@ -55,23 +56,29 @@ class _AdaptiveCoachViewState extends ConsumerState<AdaptiveCoachView> {
         ? (totalCalories / daysWithData)
         : profile.dailyCaloriesGoal.toDouble();
 
-    // Analyze weight changes
+    // Analyze weight changes (require at least 5 calendar days span to avoid water-weight distortion)
     double weightDelta = 0.0;
-    int daysBetweenWeights = 7;
-    bool hasEnoughWeightData = recentWeights.length >= 2;
+    int daysBetweenWeights = 0;
+    bool hasEnoughWeightData = false;
 
-    if (hasEnoughWeightData) {
+    if (recentWeights.length >= 2) {
       // recentWeights is sorted newest first
       final newest = recentWeights.first;
       final oldest = recentWeights.last;
-      weightDelta = newest.weightKg - oldest.weightKg;
-      daysBetweenWeights = math.max(1, newest.date.difference(oldest.date).inDays);
+      daysBetweenWeights = DateUtils.dateOnly(newest.date)
+          .difference(DateUtils.dateOnly(oldest.date))
+          .inDays;
+      if (daysBetweenWeights >= 5) {
+        hasEnoughWeightData = true;
+        weightDelta = newest.weightKg - oldest.weightKg;
+      }
     }
 
     // Expenditure (TDEE) calculation
     // Delta kg * 7700 kcal / days = caloric balance
-    final double dailyCaloricSurplusOrDeficit =
-        (weightDelta * 7700.0) / daysBetweenWeights;
+    final double dailyCaloricSurplusOrDeficit = hasEnoughWeightData
+        ? (weightDelta * 7700.0) / daysBetweenWeights
+        : 0.0;
 
     // True TDEE = Intake - Balance
     double calculatedTdee = avgDailyIntake - dailyCaloricSurplusOrDeficit;
@@ -79,47 +86,53 @@ class _AdaptiveCoachViewState extends ConsumerState<AdaptiveCoachView> {
     if (calculatedTdee > 4500) calculatedTdee = 3200;
 
     // Weekly weight pace (kg/week)
-    final double weeklyPace = (weightDelta / daysBetweenWeights) * 7.0;
+    final double weeklyPace =
+        hasEnoughWeightData ? (weightDelta / daysBetweenWeights) * 7.0 : 0.0;
 
     // Recommendation logic based on user goal
     int recommendedKcal = profile.dailyCaloriesGoal;
     String adviceExplanation = '';
 
-    switch (profile.goal) {
-      case WeightGoal.reduction:
-        // Target loss pace: 0.5 kg/week => ~550 kcal deficit
-        final targetDeficit = (profile.weeklyPaceKg * 1100.0).clamp(300.0, 900.0);
-        recommendedKcal = (calculatedTdee - targetDeficit).round();
-        if (weeklyPace < -0.9) {
+    if (!hasEnoughWeightData) {
+      adviceExplanation =
+          'Potrzeba min. 5 dni pomiarów wagi, aby wiarygodnie wyliczyć tempo i skorygować kalorie.';
+    } else {
+      switch (profile.goal) {
+        case WeightGoal.reduction:
+          // Target loss pace: 0.5 kg/week => ~550 kcal deficit
+          final targetDeficit = (profile.weeklyPaceKg * 1100.0).clamp(300.0, 900.0);
+          recommendedKcal = (calculatedTdee - targetDeficit).round();
+          if (weeklyPace < -0.9) {
+            adviceExplanation =
+                'Chudniesz bardzo szybko (${weeklyPace.toStringAsFixed(2)} kg/tydz.). Zwiększamy kalorie, aby chronić Twoją masę mięśniową i energię.';
+          } else if (weeklyPace > -0.2) {
+            adviceExplanation =
+                'Tempo redukcji (${weeklyPace.toStringAsFixed(2)} kg/tydz.) zwolniło. Sugerujemy lekkie obniżenie kalorii, aby powrócić do planowanego spadku wagi.';
+          } else {
+            adviceExplanation =
+                'Świetne tempo redukcji (${weeklyPace.toStringAsFixed(2)} kg/tydz.)! Twój metabolizm pracuje stabilnie.';
+          }
+        case WeightGoal.surplus:
+          // Target surplus: ~250-350 kcal
+          recommendedKcal = (calculatedTdee + 300).round();
+          if (weeklyPace > 0.5) {
+            adviceExplanation =
+                'Waga rośnie nieco za szybko (+${weeklyPace.toStringAsFixed(2)} kg/tydz.). Korygujemy nadwyżkę, by budować czystą masę mięśniową zamiast tkanki tłuszczowej.';
+          } else if (weeklyPace < 0.1) {
+            adviceExplanation =
+                'Waga stoi w miejscu. Zwiększamy kalorie, aby stymulować przyrost masy i progres siłowy.';
+          } else {
+            adviceExplanation =
+                'Optymalne tempo budowy masy (+${weeklyPace.toStringAsFixed(2)} kg/tydz.)!';
+          }
+        case WeightGoal.maintenance:
+          recommendedKcal = calculatedTdee.round();
           adviceExplanation =
-              'Chudniesz bardzo szybko (${weeklyPace.toStringAsFixed(2)} kg/tydz.). Zwiększamy kalorie, aby chronić Twoją masę mięśniową i energię.';
-        } else if (weeklyPace > -0.2) {
-          adviceExplanation =
-              'Tempo redukcji (${weeklyPace.toStringAsFixed(2)} kg/tydz.) zwolniło. Sugerujemy lekkie obniżenie kalorii, aby powrócić do planowanego spadku wagi.';
-        } else {
-          adviceExplanation =
-              'Świetne tempo redukcji (${weeklyPace.toStringAsFixed(2)} kg/tydz.)! Twój metabolizm pracuje stabilnie.';
-        }
-      case WeightGoal.surplus:
-        // Target surplus: ~250-350 kcal
-        recommendedKcal = (calculatedTdee + 300).round();
-        if (weeklyPace > 0.5) {
-          adviceExplanation =
-              'Waga rośnie nieco za szybko (+${weeklyPace.toStringAsFixed(2)} kg/tydz.). Korygujemy nadwyżkę, by budować czystą masę mięśniową zamiast tkanki tłuszczowej.';
-        } else if (weeklyPace < 0.1) {
-          adviceExplanation =
-              'Waga stoi w miejscu. Zwiększamy kalorie, aby stymulować przyrost masy i progres siłowy.';
-        } else {
-          adviceExplanation =
-              'Optymalne tempo budowy masy (+${weeklyPace.toStringAsFixed(2)} kg/tydz.)!';
-        }
-      case WeightGoal.maintenance:
-        recommendedKcal = calculatedTdee.round();
-        adviceExplanation =
-            'Utrzymanie wagi: Twój wyliczony wydatek energetyczny idealnie równoważy wagę.';
-    }
+              'Utrzymanie wagi: Twój wyliczony wydatek energetyczny idealnie równoważy wagę.';
+      }
 
-    recommendedKcal = recommendedKcal.clamp(1200, 4500);
+      recommendedKcal = recommendedKcal.clamp(1200, 4500);
+    }
     final int calorieDelta = recommendedKcal - profile.dailyCaloriesGoal;
 
     return ListView(

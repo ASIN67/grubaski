@@ -14,6 +14,7 @@ class CalorieSummaryCard extends StatelessWidget {
   final double fatConsumed;
   final double fatGoal;
   final VoidCallback? onTap;
+  final VoidCallback? onAskAiPressed;
 
   CalorieSummaryCard({
     super.key,
@@ -26,6 +27,7 @@ class CalorieSummaryCard extends StatelessWidget {
     required num fatConsumed,
     required num fatGoal,
     this.onTap,
+    this.onAskAiPressed,
   })  : caloriesConsumed = caloriesConsumed.toDouble(),
         caloriesGoal = caloriesGoal.toDouble(),
         proteinConsumed = proteinConsumed.toDouble(),
@@ -199,6 +201,76 @@ class CalorieSummaryCard extends StatelessWidget {
                     );
                   },
                 ),
+
+                if (onAskAiPressed != null && !isOverflow && remainingKcal > 50) ...[
+                  const SizedBox(height: 16),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: onAskAiPressed,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFFEC4899)
+                                  .withOpacity(isDark ? 0.18 : 0.10),
+                              AppColors.primary
+                                  .withOpacity(isDark ? 0.18 : 0.10),
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: const Color(0xFFEC4899)
+                                .withOpacity(isDark ? 0.40 : 0.28),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEC4899).withOpacity(0.16),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.auto_awesome_rounded,
+                                size: 18,
+                                color: Color(0xFFEC4899),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Brakuje Ci $remainingKcal kcal? Dobierz posiłek z AI ✨',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary(context),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 14,
+                              color: isDark
+                                  ? const Color(0xFFF472B6)
+                                  : const Color(0xFFDB2777),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
