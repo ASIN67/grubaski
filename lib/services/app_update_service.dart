@@ -42,8 +42,8 @@ class AppUpdateService {
       MethodChannel('com.example.grubasek/apk_installer');
 
   // Keep in sync with pubspec.yaml baseline so offline/test fallbacks never under-report the app version.
-  static const String _fallbackVersion = '1.0.9';
-  static const int _fallbackBuildNumber = 10;
+  static const String _fallbackVersion = '1.0.10';
+  static const int _fallbackBuildNumber = 11;
 
   AppUpdateService({SupabaseService? supabaseService})
       : _supabaseService = supabaseService ?? SupabaseService.instance;
