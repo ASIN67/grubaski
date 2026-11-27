@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/models.dart';
 import 'hive_service.dart';
 import 'supabase_service.dart';
@@ -36,6 +37,10 @@ class CloudSyncService {
   bool get isSyncing => _isSyncing;
 
   static const String lastSyncTimestampKey = 'last_cloud_sync_timestamp';
+  static const String userProfileUpdatedAtKey = 'user_profile_updated_at';
+  static const String deletedMealEntryIdsKey = 'deleted_meal_entry_ids';
+  static const String deletedWeightEntryIdsKey = 'deleted_weight_entry_ids';
+  static const String userProfileHiveKey = 'current_user_profile';
 
   CloudSyncService({
     HiveService? hiveService,
@@ -168,36 +173,129 @@ class CloudSyncService {
     final remoteData =
         await table.select().eq('user_id', userId).maybeSingle();
 
-    final localProfile = _hiveService.userProfileBox.get('current');
+    final localProfile =
+        _hiveService.userProfileBox.get(userProfileHiveKey) ??
+            _hiveService.userProfileBox.get('current');
 
-    if (localProfile != null) {
-      // Push local profile to Supabase
-      await table.upsert({
-        'user_id': userId,
-        'gender': localProfile.gender.name,
-        'age': localProfile.age,
-        'start_weight_kg': localProfile.startWeightKg,
-        'target_weight_kg': localProfile.targetWeightKg,
-        'height_cm': localProfile.heightCm,
-        'activity_level': localProfile.activityLevel.name,
-        'goal': localProfile.goal.name,
-        'weekly_pace_kg': localProfile.weeklyPaceKg,
-        'daily_calories_goal': localProfile.dailyCaloriesGoal,
-        'protein_goal_grams': localProfile.proteinGoalGrams,
-        'carbs_goal_grams': localProfile.carbsGoalGrams,
-        'fat_goal_grams': localProfile.fatGoalGrams,
-        'water_goal_ml': localProfile.waterGoalMl,
-        'updated_at': DateTime.now().toUtc().toIso8601String(),
-      });
+    if (localProfile != null && remoteData != null) {
+      if (_shouldPullRemoteProfile(remoteData)) {
+        await _saveRemoteProfileLocally(remoteData);
+        down++;
+      } else {
+        await _pushLocalProfile(table, userId, localProfile);
+        up++;
+      }
+    } else if (localProfile != null) {
+      await _pushLocalProfile(table, userId, localProfile);
       up++;
     } else if (remoteData != null) {
-      // Pull remote profile to local Hive
-      final profile = _mapRowToUserProfile(remoteData);
-      await _hiveService.userProfileBox.put('current', profile);
+      await _saveRemoteProfileLocally(remoteData);
       down++;
     }
 
     return (uploaded: up, downloaded: down);
+  }
+
+  bool _shouldPullRemoteProfile(Map<String, dynamic> remoteData) {
+    final remoteUpdatedAt = _parseUtcDateTime(remoteData['updated_at']);
+    final localUpdatedAt = _readUtcTimestamp(userProfileUpdatedAtKey);
+    final lastSync = lastSyncTime?.toUtc();
+
+    if (lastSync == null) {
+      // Fresh device or never synced before: avoid overwriting an existing
+      // cloud profile unless local profile has a strictly newer timestamp.
+      if (localUpdatedAt == null) {
+        return true;
+      }
+      if (remoteUpdatedAt != null) {
+        return remoteUpdatedAt.isAfter(localUpdatedAt);
+      }
+      return false;
+    }
+
+    if (remoteUpdatedAt == null) {
+      return false;
+    }
+
+    final localBaseline =
+        (localUpdatedAt != null && localUpdatedAt.isAfter(lastSync))
+            ? localUpdatedAt
+            : lastSync;
+    return remoteUpdatedAt.isAfter(localBaseline);
+  }
+
+  Future<void> _saveRemoteProfileLocally(Map<String, dynamic> remoteData) async {
+    final profile = _mapRowToUserProfile(remoteData);
+    await _hiveService.userProfileBox.put(userProfileHiveKey, profile);
+    final remoteUpdatedAt = _parseUtcDateTime(remoteData['updated_at']);
+    await _writeUtcTimestamp(
+      userProfileUpdatedAtKey,
+      remoteUpdatedAt ?? DateTime.now().toUtc(),
+    );
+  }
+
+  Future<void> _pushLocalProfile(
+    SupabaseQueryBuilder table,
+    String userId,
+    UserProfile localProfile,
+  ) async {
+    final nowUtc = DateTime.now().toUtc();
+    await table.upsert({
+      'user_id': userId,
+      'gender': localProfile.gender.name,
+      'age': localProfile.age,
+      'start_weight_kg': localProfile.startWeightKg,
+      'target_weight_kg': localProfile.targetWeightKg,
+      'height_cm': localProfile.heightCm,
+      'activity_level': localProfile.activityLevel.name,
+      'goal': localProfile.goal.name,
+      'weekly_pace_kg': localProfile.weeklyPaceKg,
+      'daily_calories_goal': localProfile.dailyCaloriesGoal,
+      'protein_goal_grams': localProfile.proteinGoalGrams,
+      'carbs_goal_grams': localProfile.carbsGoalGrams,
+      'fat_goal_grams': localProfile.fatGoalGrams,
+      'water_goal_ml': localProfile.waterGoalMl,
+      'updated_at': nowUtc.toIso8601String(),
+    });
+    await _writeUtcTimestamp(userProfileUpdatedAtKey, nowUtc);
+  }
+
+  DateTime? _parseUtcDateTime(dynamic raw) {
+    if (raw is String) {
+      return DateTime.tryParse(raw)?.toUtc();
+    }
+    return null;
+  }
+
+  DateTime? _readUtcTimestamp(String key) {
+    return _parseUtcDateTime(_hiveService.settingsBox.get(key));
+  }
+
+  Future<void> _writeUtcTimestamp(String key, DateTime value) async {
+    await _hiveService.settingsBox.put(key, value.toUtc().toIso8601String());
+  }
+
+  List<String> _getPendingDeletedIds(String settingsKey) {
+    final raw = _hiveService.settingsBox.get(settingsKey);
+    if (raw is! List) return const [];
+    return raw
+        .map((e) => e.toString())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+  }
+
+  Future<void> _flushPendingDeletions(
+    SupabaseQueryBuilder table,
+    String userId,
+    String settingsKey,
+  ) async {
+    final pendingIds = _getPendingDeletedIds(settingsKey);
+    if (pendingIds.isEmpty) return;
+
+    await table.delete().eq('user_id', userId).inFilter('id', pendingIds);
+    // Clear tombstones only after remote delete succeeds.
+    await _hiveService.settingsBox.delete(settingsKey);
   }
 
   // ---------------------------------------------------------------------------
@@ -251,6 +349,9 @@ class CloudSyncService {
 
     var up = 0;
     var down = 0;
+
+    // Delete locally removed entries on Supabase before downloading remote rows
+    await _flushPendingDeletions(table, userId, deletedWeightEntryIdsKey);
 
     // Upload local weight entries
     final localEntries = _hiveService.weightEntriesBox.values.toList();
@@ -351,6 +452,9 @@ class CloudSyncService {
     var up = 0;
     var down = 0;
 
+    // Delete locally removed entries on Supabase before downloading remote rows
+    await _flushPendingDeletions(table, userId, deletedMealEntryIdsKey);
+
     // Upload local meal entries
     final localEntries = _hiveService.mealEntriesBox.values.toList();
     if (localEntries.isNotEmpty) {
@@ -386,6 +490,23 @@ class CloudSyncService {
   // ---------------------------------------------------------------------------
   // 6. CUSTOM PRODUCTS SYNC (To Supabase public_products)
   // ---------------------------------------------------------------------------
+  /// Checks if a product is a private AI estimation, AI suggestion, or recipe
+  /// that should NOT be leaked into the public Supabase catalog.
+  static bool isPrivateOrAiProduct(FoodProduct product) {
+    final brand = product.brand?.toLowerCase() ?? '';
+    final id = product.id.toLowerCase();
+    final name = product.name.toLowerCase();
+
+    return product.isRecipe ||
+        id.startsWith('recipe_') ||
+        id.startsWith('ai_') ||
+        brand == 'ai oszacowanie' ||
+        brand == 'ai dokończ moje makro' ||
+        brand.startsWith('ai ') ||
+        brand == 'przepis' ||
+        name.startsWith('✨');
+  }
+
   Future<({int uploaded, int downloaded})> syncCustomProducts(
       String userId) async {
     final table = _supabaseService.publicProductsTable;
@@ -394,9 +515,9 @@ class CloudSyncService {
     var up = 0;
     var down = 0;
 
-    // Upload local custom products
+    // Upload local custom products (excluding private AI items and recipes)
     final localCustom = _hiveService.foodProductsBox.values
-        .where((p) => p.isCustom)
+        .where((p) => p.isCustom && !isPrivateOrAiProduct(p))
         .toList();
 
     if (localCustom.isNotEmpty) {
